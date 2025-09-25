@@ -4,7 +4,7 @@
   "dir": "rtl",
   "lang": "ar",
   "display": "standalone",
-  "start_url": "./index.html",
+  "start_url": "/-/index.html",
   "scope": "./",
   "theme_color": "#16a34a",
   "background_color": "#ffffff",
