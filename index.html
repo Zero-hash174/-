@@ -5,16 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>تطبيق وصفتي</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>tailwind.config = { darkMode: "class" };</script>
     
-    <!-- Google Fonts: Cairo -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
@@ -57,7 +54,6 @@
             left: 0;
         }
     </style>
-<!-- PWA: Manifest & Meta -->
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="chaf.png">
 <link rel="apple-touch-icon" href="chaf.png">
@@ -69,25 +65,20 @@
 </head>
 <body class="bg-white text-gray-800 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-300">
 
-    <!-- Main container with background styles -->
     <div class="bg-gradient-to-br from-green-50 to-teal-100 dark:bg-none min-h-screen p-4 sm:p-6 flex flex-col items-center">
 
-        <!-- Custom Notification -->
         <div id="notification" class="hidden fixed top-5 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg z-50 transition-all duration-300 ease-in-out transform">
             <span id="notification-message"></span>
         </div>
         
         
 
-        <!-- Header -->
         <header class="w-full max-w-4xl mb-8">
             <div class="flex justify-between items-center">
-                <!-- Left side: Theme toggle -->
                 <button id="theme-toggle" class="p-2 rounded-full text-gray-800 dark:text-gray-100 bg-gray-200 dark:bg-gray-700 transition-colors duration-300">
                     <i data-lucide="moon" class="w-6 h-6 theme-icon"></i>
                 </button>
                 
-                <!-- Center: Title -->
                 <div class="text-center">
                     <h1 class="text-4xl sm:text-5xl font-extrabold text-green-700 drop-shadow-lg mb-1 dark:text-green-400">
                         وصفتي
@@ -95,7 +86,6 @@
                     <p class="text-lg sm:text-xl text-teal-600 dark:text-teal-400">مطبخك الذكي</p>
                 </div>
 
-                <!-- Right side: Flag -->
                 <div class="flag">
                     <div class="flag-stripe red"></div>
                     <div class="flag-stripe white"></div>
@@ -106,7 +96,6 @@
         </header>
 
         <main class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-6">
-            <!-- Main Content Section -->
             <section class="bg-white p-4 sm:p-6 rounded-2xl shadow-xl border border-green-200 col-span-1 md:col-span-2 dark:bg-gray-800 dark:border-green-700">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
                     <div class="flex items-center">
@@ -122,9 +111,7 @@
                     </div>
                 </div>
                 
-                <!-- Controls and Inputs -->
                 <div>
-                    <!-- Cuisine Selection -->
                     <div class="mb-4 p-4 bg-green-50 rounded-lg border border-green-200 dark:bg-gray-700 dark:border-green-600">
                         <span class="font-semibold text-green-800 text-lg mb-3 block text-center sm:text-right dark:text-green-200">اختر المطبخ:</span>
                         <div class="flex flex-wrap justify-center items-center gap-x-4 gap-y-2">
@@ -147,7 +134,6 @@
                         </div>
                     </div>
 
-                    <!-- Meal Type Selection -->
                     <div class="mb-4 p-4 bg-green-50 rounded-lg border border-green-200 flex flex-col sm:flex-row items-center justify-center gap-4 dark:bg-gray-700 dark:border-green-600">
                         <span class="font-semibold text-green-800 text-lg dark:text-green-200">اختر نوع الوجبة:</span>
                         <select id="meal-type" class="w-full sm:w-auto p-2 pr-8 rounded-lg border border-green-300 focus:outline-none focus:ring-2 focus:ring-green-400 text-right bg-white dark:bg-gray-800 dark:text-gray-100 dark:border-green-600">
@@ -160,7 +146,6 @@
                         </select>
                     </div>
                     
-                    <!-- Advanced Filters Section -->
                     <div class="mb-4 p-4 bg-orange-50 rounded-lg border border-orange-200 dark:bg-gray-700 dark:border-orange-600">
                         <h3 class="text-lg font-semibold text-orange-800 mb-3 text-center sm:text-right dark:text-orange-200">
                             فلتر التفضيلات الغذائية:
@@ -181,7 +166,6 @@
                         </div>
                     </div>
 
-                    <!-- AI Meal Suggestion -->
                     <div class="mt-6">
                         <h3 class="text-xl font-semibold text-purple-700 mb-3 border-b pb-2 border-purple-200 dark:text-purple-400 dark:border-purple-600">
                             ✨ اقتراح وجبة من مكوناتك
@@ -202,7 +186,6 @@
                         </div>
                     </div>
 
-                    <!-- General AI Meal Suggestion -->
                     <div class="mt-6">
                          <h3 class="text-xl font-semibold text-indigo-700 mb-3 border-b pb-2 border-indigo-200 dark:text-indigo-400 dark:border-indigo-600">
                             ✨ اقتراح وجبة عشوائية
@@ -213,17 +196,14 @@
                         </button>
                     </div>
 
-                    <!-- Display Suggested Meal -->
                     <div id="suggested-meal-container" class="hidden bg-purple-50 p-4 rounded-lg shadow-md border border-purple-200 mb-6 dark:bg-gray-700 dark:border-purple-600"></div>
 
-                    <!-- Analyze Ingredients Button -->
                     <button id="analyze-ingredients-btn" data-icon="sliders-horizontal" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md flex items-center justify-center">
                         <span class="icon-container w-5 h-5 ml-2"><i data-lucide="sliders-horizontal" class="w-5 h-5"></i></span>
                         <span class="button-text">✨ تحليل المكونات (بالذكاء الاصطناعي)</span>
                     </button>
                 </div>
 
-                <!-- Display Meal Plans -->
                 <div class="mt-8">
                     <h3 class="text-xl font-semibold text-green-700 mb-3 border-b pb-2 border-green-200 dark:text-green-400 dark:border-green-600">
                         وجباتك المخطط لها:
@@ -234,9 +214,7 @@
                 </div>
             </section>
 
-            <!-- Right Column: Grocery List & Nutrition Tips -->
             <div class="flex flex-col gap-6">
-                <!-- Grocery List Section -->
                 <section class="bg-white p-4 sm:p-6 rounded-2xl shadow-xl border border-teal-200 dark:bg-gray-800 dark:border-teal-700">
                     <h2 class="flex items-center text-2xl font-bold text-teal-800 mb-4 dark:text-teal-300">
                         <i data-lucide="shopping-bag" class="w-7 h-7 ml-2 text-teal-600 dark:text-teal-400"></i>
@@ -250,7 +228,6 @@
                     </button>
                 </section>
 
-                <!-- Dynamic Nutrition Tips/Analysis Section -->
                 <section class="bg-white p-4 sm:p-6 rounded-2xl shadow-xl border border-orange-200 dark:bg-gray-800 dark:border-orange-700">
                     <div id="nutrition-tips-header" class="relative">
                          <h2 class="flex items-center text-2xl font-bold text-orange-800 mb-4 dark:text-orange-300">
@@ -263,7 +240,6 @@
             </div>
         </main>
 
-        <!-- Footer -->
         <footer class="w-full max-w-4xl text-center mt-8 text-gray-600 text-sm dark:text-gray-400">
             <p>© <span id="year"></span> وصفتي. جميع الحقوق محفوظة.لدي </p>
         </footer>
@@ -978,16 +954,27 @@ lucide.createIcons();
             initializeApp();
         });
     </script>
-<!-- PWA: Service Worker Registration -->
 <script>
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
-    navigator.serviceWorker.register('./sw.js')
-      .then(function(reg) { /* console.log('SW registered', reg); */ })
-      .catch(function(err) { console.warn('SW registration failed', err); });
+  navigator.serviceWorker.register('./sw.js')
+    .then(function(reg) { 
+        console.log('SW registered', reg); 
+        
+        // التحقق الدوري من وجود تحديث كل ساعة
+        setInterval(() => {
+          reg.update();
+        }, 60 * 60 * 1000); // 60 دقيقة * 60 ثانية * 1000 مللي ثانية
+    })
+    .catch(function(err) { console.warn('SW registration failed', err); });
+
+  // استقبال رسالة من Service Worker عند توفر نسخة جديدة
+  navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data === 'SW_UPDATED') {
+      alert('نسخة جديدة من التطبيق متاحة! يرجى إعادة تحميل الصفحة.');
+      // لإعادة تحميل تلقائي، يمكن استخدام: location.reload();
+    }
   });
 }
 </script>
 </body>
 </html>
-
