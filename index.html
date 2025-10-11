@@ -195,8 +195,9 @@
                             <span class="button-text">اختر وجبة (بالذكاء الاصطناعي)</span>
                         </button>
                     </div>
+                    
+                    <div id="suggested-meals-list" class="space-y-4 mb-6"></div>
 
-                    <div id="suggested-meal-container" class="hidden bg-purple-50 p-4 rounded-lg shadow-md border border-purple-200 mb-6 dark:bg-gray-700 dark:border-purple-600"></div>
 
                     <button id="analyze-ingredients-btn" data-icon="sliders-horizontal" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md flex items-center justify-center">
                         <span class="icon-container w-5 h-5 ml-2"><i data-lucide="sliders-horizontal" class="w-5 h-5"></i></span>
@@ -252,7 +253,7 @@
 
             // --- LOCAL STORAGE & STATE MANAGEMENT ---
             let mealPlans = [];
-            let suggestedMeal = null;
+            let suggestedMeals = []; 
             let isLoadingRecipe = false;
             let isAnalyzingIngredients = false;
             let isAnalyzingImage = false;
@@ -272,7 +273,7 @@
             const suggestFromIngredientsBtn = document.getElementById('suggest-from-ingredients-btn');
             const suggestGeneralBtn = document.getElementById('suggest-general-btn');
             const analyzeIngredientsBtn = document.getElementById('analyze-ingredients-btn');
-            const suggestedMealContainer = document.getElementById('suggested-meal-container');
+            const suggestedMealsList = document.getElementById('suggested-meals-list');
             const mealPlansList = document.getElementById('meal-plans-list');
             const noMealsMessage = document.getElementById('no-meals-message');
             const groceryList = document.getElementById('grocery-list');
@@ -379,6 +380,33 @@
                         }
                     });
                 }
+            };
+
+            const renderSuggestedMeals = () => {
+                suggestedMealsList.innerHTML = '';
+                if (suggestedMeals.length > 0) {
+                    suggestedMeals.forEach(meal => {
+                        const mealCard = document.createElement('div');
+                        mealCard.className = "bg-purple-50 p-4 rounded-lg shadow-md border border-purple-200 dark:bg-gray-700 dark:border-purple-600";
+                        mealCard.innerHTML = `
+                            <h4 class="text-xl font-semibold text-purple-800 mb-2 dark:text-purple-300">${meal.recipeName}</h4>
+                            <p class="text-gray-700 text-sm mb-2 dark:text-gray-300"><span class="font-semibold">المكونات:</span> ${meal.ingredients.join('، ')}</p>
+                            <p class="text-gray-700 text-sm mb-2 dark:text-gray-300"><span class="font-semibold">طريقة التحضير:</span> ${meal.preparation}</p>
+                            ${meal.youtubeSearchQuery ? `<a href="https://www.youtube.com/results?search_query=${encodeURIComponent(meal.youtubeSearchQuery)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center text-red-600 hover:text-red-800 transition duration-200 font-semibold text-sm mt-1 dark:text-red-400" title="شاهد فيديو التحضير على يوتيوب">
+                                <i data-lucide="youtube" class="w-5 h-5 ml-2"></i> شاهد طريقة التحضير على يوتيوب</a>` : ''}
+                            <div class="flex flex-col sm:flex-row gap-2 mt-4">
+                                <button data-id="${meal.id}" class="add-suggested-btn w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md flex items-center justify-center">
+                                    <i data-lucide="plus-circle" class="w-5 h-5 ml-2 pointer-events-none"></i> إضافة للخطط
+                                </button>
+                                <button data-id="${meal.id}" class="clear-suggested-btn w-full sm:w-auto bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md flex items-center justify-center">
+                                    <i data-lucide="x-circle" class="w-5 h-5 pointer-events-none"></i>
+                                </button>
+                            </div>
+                        `;
+                        suggestedMealsList.appendChild(mealCard);
+                    });
+                }
+                lucide.createIcons();
             };
             
             const renderStaticTips = () => {
@@ -502,9 +530,11 @@ lucide.createIcons();
                     if (savedData) {
                         const data = JSON.parse(savedData);
                         mealPlans = data.mealPlans || [];
+                        suggestedMeals = data.suggestedMeals || [];
                         dietaryPreferences = data.dietaryPreferences || [];
                         
                         renderMealPlans();
+                        renderSuggestedMeals();
                         dietaryPreferenceCheckboxes.forEach(checkbox => {
                             checkbox.checked = dietaryPreferences.includes(checkbox.value);
                         });
@@ -519,6 +549,7 @@ lucide.createIcons();
                 try {
                     const dataToSave = {
                         mealPlans: mealPlans,
+                        suggestedMeals: suggestedMeals,
                         dietaryPreferences: dietaryPreferences
                     };
                     localStorage.setItem('userData', JSON.stringify(dataToSave));
@@ -627,29 +658,27 @@ lucide.createIcons();
 
             // --- CORE LOGIC FUNCTIONS ---
             
-            const addSuggestedMealToPlan = () => {
-                if (suggestedMeal) {
+            const addSuggestedMealToPlan = (id) => {
+                const mealToAdd = suggestedMeals.find(meal => meal.id === id);
+                if (mealToAdd) {
                     if (mealPlans.length >= MAX_MEAL_PLANS) {
                         showCustomNotification(`لا يمكن إضافة المزيد من الوجبات. الحد الأقصى هو ${MAX_MEAL_PLANS}.`);
                         return;
                     }
 
-                    mealPlans.push({ id: Date.now(), ...suggestedMeal });
+                    mealPlans.push({ ...mealToAdd });
+                    suggestedMeals = suggestedMeals.filter(meal => meal.id !== id);
                     renderMealPlans();
+                    renderSuggestedMeals();
                     saveUserDataToLocalStorage();
                     showCustomNotification("تم إضافة الوجبة المقترحة بنجاح!");
-                    suggestedMeal = null;
-                    suggestedMealContainer.innerHTML = '';
-                    suggestedMealContainer.classList.add('hidden');
-                    userIngredientsInput.value = '';
                 }
             };
 
-            const clearSuggestedMeal = () => {
-                suggestedMeal = null;
-                suggestedMealContainer.innerHTML = '';
-                suggestedMealContainer.classList.add('hidden');
-                userIngredientsInput.value = '';
+            const clearSuggestedMeal = (id) => {
+                suggestedMeals = suggestedMeals.filter(meal => meal.id !== id);
+                renderSuggestedMeals();
+                saveUserDataToLocalStorage();
                 showCustomNotification("تم مسح الاقتراح.");
             };
             
@@ -695,10 +724,6 @@ lucide.createIcons();
                 const originalText = button.querySelector('.button-text').textContent;
                 toggleLoading(button, true, originalText);
                 
-                renderStaticTips();
-                suggestedMealContainer.classList.add('hidden');
-                suggestedMeal = null;
-
                 const selectedCuisine = document.querySelector('input[name="cuisine"]:checked').value;
                 const selectedMealType = mealTypeSelect.value;
                 
@@ -730,6 +755,8 @@ lucide.createIcons();
                     contents: [{ role: "user", parts: [{ text: prompt }] }],
                     generationConfig: {
                         responseMimeType: "application/json",
+                        // *** THIS IS THE FIX FOR REPETITIVE ANSWERS ***
+                        temperature: 0.9,
                         responseSchema: {
                             type: "OBJECT",
                             properties: {
@@ -747,25 +774,15 @@ lucide.createIcons();
 
                 if (result?.candidates?.[0]?.content?.parts?.[0]?.text) {
                     try {
-                        suggestedMeal = JSON.parse(result.candidates[0].content.parts[0].text);
-                        suggestedMealContainer.innerHTML = `
-                            <h4 class="text-xl font-semibold text-purple-800 mb-2 dark:text-purple-300">${suggestedMeal.recipeName}</h4>
-                            <p class="text-gray-700 text-sm mb-2 dark:text-gray-300"><span class="font-semibold">المكونات:</span> ${suggestedMeal.ingredients.join('، ')}</p>
-                            <p class="text-gray-700 text-sm mb-2 dark:text-gray-300"><span class="font-semibold">طريقة التحضير:</span> ${suggestedMeal.preparation}</p>
-                            ${suggestedMeal.youtubeSearchQuery ? `<a href="https://www.youtube.com/results?search_query=${encodeURIComponent(suggestedMeal.youtubeSearchQuery)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center text-red-600 hover:text-red-800 transition duration-200 font-semibold text-sm mt-1 dark:text-red-400" title="شاهد فيديو التحضير على يوتيوب">
-                                <i data-lucide="youtube" class="w-5 h-5 ml-2"></i> شاهد طريقة التحضير على يوتيوب</a>` : ''}
-                            <div class="flex flex-col sm:flex-row gap-2 mt-4">
-                                <button id="add-suggested-btn" class="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md flex items-center justify-center">
-                                    <i data-lucide="plus-circle" class="w-5 h-5 ml-2"></i> إضافة للخطط
-                                </button>
-                                <button id="clear-suggested-btn" class="w-full sm:w-auto bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md flex items-center justify-center">
-                                    <i data-lucide="x-circle" class="w-5 h-5"></i>
-                                </button>
-                            </div>
-                        `;
-                        suggestedMealContainer.classList.remove('hidden');
-                        lucide.createIcons();
+                        const newMealData = JSON.parse(result.candidates[0].content.parts[0].text);
+                        const newMeal = { id: Date.now(), ...newMealData };
+                        
+                        suggestedMeals.unshift(newMeal);
+                        
+                        renderSuggestedMeals();
+                        saveUserDataToLocalStorage();
                         showCustomNotification("تم اقتراح وجبة جديدة!");
+
                     } catch (e) {
                          showCustomNotification("حدث خطأ في تحليل استجابة الخادم.");
                     }
@@ -780,12 +797,10 @@ lucide.createIcons();
             const analyzeIngredients = async () => {
                 if (isLoadingRecipe || isAnalyzingIngredients || isAnalyzingImage) return;
 
-                const ingredients = suggestedMeal
-                    ? suggestedMeal.ingredients.join(', ')
-                    : userIngredientsInput.value.trim();
+                const ingredients = userIngredientsInput.value.trim();
                 
                 if (!ingredients) {
-                    showCustomNotification("الرجاء إدخال بعض المكونات أو اقتراح وجبة لتحليلها.");
+                    showCustomNotification("الرجاء إدخال بعض المكونات لتحليلها.");
                     return;
                 }
 
@@ -902,18 +917,21 @@ lucide.createIcons();
             });
 
             document.body.addEventListener('click', (e) => {
-                if (e.target.id === 'add-suggested-btn' || e.target.closest('#add-suggested-btn')) {
-                    addSuggestedMealToPlan();
+                const targetButton = e.target.closest('button');
+                if (!targetButton) return;
+
+                const mealId = parseInt(targetButton.dataset.id, 10);
+                
+                if (targetButton.classList.contains('add-suggested-btn')) {
+                    addSuggestedMealToPlan(mealId);
                 }
-                if (e.target.id === 'clear-suggested-btn' || e.target.closest('#clear-suggested-btn')) {
-                    clearSuggestedMeal();
+                if (targetButton.classList.contains('clear-suggested-btn')) {
+                    clearSuggestedMeal(mealId);
                 }
-                if (e.target.classList.contains('delete-meal-btn') || e.target.closest('.delete-meal-btn')) {
-                    const button = e.target.closest('.delete-meal-btn');
-                    const mealId = parseInt(button.dataset.id, 10);
+                if (targetButton.classList.contains('delete-meal-btn')) {
                     deleteMealPlan(mealId);
                 }
-                if (e.target.id === 'clear-analysis-btn' || e.target.closest('#clear-analysis-btn')) {
+                if (targetButton.id === 'clear-analysis-btn') {
                     renderStaticTips();
                     showCustomNotification("تم مسح التحليل.");
                 }
@@ -944,11 +962,7 @@ lucide.createIcons();
                 loadUserDataFromLocalStorage();
                 loadUsageDataFromLocalStorage();
                 renderStaticTips();
-                renderMealPlans();
                 lucide.createIcons();
-                setTimeout(() => {
-                    loadingOverlay.classList.add('hidden');
-                }, 250);
             };
 
             initializeApp();
