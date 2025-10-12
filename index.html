@@ -358,10 +358,15 @@
                         const mealContainer = document.createElement('div');
                         mealContainer.className = "bg-teal-50 p-4 rounded-lg border border-teal-100 dark:bg-gray-700 dark:border-teal-600";
                         
-                        const mealTitle = document.createElement('h4');
-                        mealTitle.className = "text-lg font-semibold text-teal-800 mb-2 dark:text-teal-300";
-                        mealTitle.textContent = meal.recipeName;
-                        mealContainer.appendChild(mealTitle);
+                        const mealHeader = document.createElement('div');
+                        mealHeader.className = "flex justify-between items-center w-full mb-2";
+                        mealHeader.innerHTML = `
+                            <h4 class="text-lg font-semibold text-teal-800 dark:text-teal-300">${meal.recipeName}</h4>
+                            <button data-id="${meal.id}" class="delete-meal-btn text-red-500 hover:text-red-700 transition duration-200" title="حذف الوجبة من القائمة">
+                                <i data-lucide="x-circle" class="w-6 h-6 pointer-events-none"></i>
+                            </button>
+                        `;
+                        mealContainer.appendChild(mealHeader);
 
                         const ingredientsList = document.createElement('ul');
                         ingredientsList.className = "list-disc list-inside space-y-1 pr-4 text-gray-700 dark:text-gray-300";
@@ -442,14 +447,18 @@
                 lucide.createIcons();
             };
             
-            const renderDynamicTips = (analysisText) => {
+            const renderDynamicTips = (analysisText, mealName) => {
                 if (tipsInterval) clearInterval(tipsInterval);
+                
+                const titleText = mealName ? `تحليل وجبة: ${mealName}` : 'تحليل المكونات';
 
                  nutritionTipsHeader.innerHTML = `
-                    <h2 class="flex items-center text-2xl font-bold text-blue-800 mb-4 dark:text-blue-300">
-                        <i data-lucide="sliders-horizontal" class="w-7 h-7 ml-2 text-blue-600 dark:text-blue-400"></i>
-                        تحليل المكونات
-                    </h2>
+                    <div class="flex flex-col">
+                        <div class="flex items-center text-2xl font-bold text-blue-800 mb-1 dark:text-blue-300">
+                            <i data-lucide="sliders-horizontal" class="w-7 h-7 ml-2 text-blue-600 dark:text-blue-400"></i>
+                            <h2>${titleText}</h2>
+                        </div>
+                    </div>
                     <button id="clear-analysis-btn" class="absolute top-0 left-0 p-1 text-gray-500 hover:text-red-500 transition-colors duration-200 rounded-full" title="مسح التحليل">
                         <i data-lucide="x" class="w-6 h-6"></i>
                     </button>
@@ -755,7 +764,6 @@ lucide.createIcons();
                     contents: [{ role: "user", parts: [{ text: prompt }] }],
                     generationConfig: {
                         responseMimeType: "application/json",
-                        // *** THIS IS THE FIX FOR REPETITIVE ANSWERS ***
                         temperature: 0.9,
                         responseSchema: {
                             type: "OBJECT",
@@ -797,10 +805,22 @@ lucide.createIcons();
             const analyzeIngredients = async () => {
                 if (isLoadingRecipe || isAnalyzingIngredients || isAnalyzingImage) return;
 
-                const ingredients = userIngredientsInput.value.trim();
+                let ingredients = userIngredientsInput.value.trim();
+                let mealName = null;
+                
+                // --- MODIFIED LOGIC ---
+                if (!ingredients && suggestedMeals.length > 0) {
+                    const latestSuggestedMeal = suggestedMeals[0];
+                    ingredients = latestSuggestedMeal.ingredients.join('، ');
+                    mealName = latestSuggestedMeal.recipeName; // Capture the meal name
+                    showCustomNotification(`سيتم تحليل مكونات وجبة: ${mealName}`);
+                } else if (ingredients) {
+                    mealName = "مكوناتك المخصصة"; // Set a generic name for manual input
+                }
+                // --- END MODIFIED LOGIC ---
                 
                 if (!ingredients) {
-                    showCustomNotification("الرجاء إدخال بعض المكونات لتحليلها.");
+                    showCustomNotification("الرجاء إدخال بعض المكونات أو اقتراح وجبة أولاً لتحليلها.");
                     return;
                 }
 
@@ -829,7 +849,7 @@ lucide.createIcons();
 
                 if (result?.candidates?.[0]?.content?.parts?.[0]?.text) {
                     const analysisText = result.candidates[0].content.parts[0].text;
-                    renderDynamicTips(analysisText);
+                    renderDynamicTips(analysisText, mealName); // Pass the meal name to the render function
                     showCustomNotification("تم تحليل المكونات بنجاح!");
                 } else {
                     renderStaticTips();
@@ -933,6 +953,7 @@ lucide.createIcons();
                 }
                 if (targetButton.id === 'clear-analysis-btn') {
                     renderStaticTips();
+                    userIngredientsInput.value = ''; // Clear the textarea when clearing analysis
                     showCustomNotification("تم مسح التحليل.");
                 }
             });
