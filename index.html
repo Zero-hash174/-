@@ -1,4 +1,4 @@
-<meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -24,8 +24,10 @@
         .prose li { margin-bottom: 0.5rem; }
         .prose strong { font-weight: 700; }
         .hidden { display: none; }
-        .dynamic-tip-enter-active { transition: opacity 0.5s ease; }
+
+        /* --- CSS FIX IS HERE --- */
         .dynamic-tip-enter { opacity: 0; }
+        .dynamic-tip-enter-active { opacity: 1; transition: opacity 0.5s ease; }
         
         /* CSS for the waving Sudanese flag */
         .flag {
@@ -53,6 +55,12 @@
             top: 0;
             left: 0;
         }
+        
+        /* Disable buttons style */
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
     </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="chaf.png">
@@ -71,8 +79,6 @@
             <span id="notification-message"></span>
         </div>
         
-        
-
         <header class="w-full max-w-4xl mb-8">
             <div class="flex justify-between items-center">
                 <button id="theme-toggle" class="p-2 rounded-full text-gray-800 dark:text-gray-100 bg-gray-200 dark:bg-gray-700 transition-colors duration-300">
@@ -198,11 +204,6 @@
                     
                     <div id="suggested-meals-list" class="space-y-4 mb-6"></div>
 
-
-                    <button id="analyze-ingredients-btn" data-icon="sliders-horizontal" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md flex items-center justify-center">
-                        <span class="icon-container w-5 h-5 ml-2"><i data-lucide="sliders-horizontal" class="w-5 h-5"></i></span>
-                        <span class="button-text">✨ تحليل المكونات (بالذكاء الاصطناعي)</span>
-                    </button>
                 </div>
 
                 <div class="mt-8">
@@ -263,16 +264,19 @@
             let usageCount = 0;
             let countdownInterval = null;
             
+            // --- ANALYSIS STATE MANAGEMENT ---
+            let analysisHistory = []; 
+            let currentAnalysisIndex = -1;
+
             // --- CONSTANTS ---
             const MAX_MEAL_PLANS = 10;
             const MAX_DAILY_REQUESTS = 10;
+            const MAX_ANALYSIS_HISTORY = 10;
             
             // --- DOM ELEMENT REFERENCES ---
-            const loadingOverlay = document.getElementById('loading-overlay');
             const userIngredientsInput = document.getElementById('user-ingredients');
             const suggestFromIngredientsBtn = document.getElementById('suggest-from-ingredients-btn');
             const suggestGeneralBtn = document.getElementById('suggest-general-btn');
-            const analyzeIngredientsBtn = document.getElementById('analyze-ingredients-btn');
             const suggestedMealsList = document.getElementById('suggested-meals-list');
             const mealPlansList = document.getElementById('meal-plans-list');
             const noMealsMessage = document.getElementById('no-meals-message');
@@ -294,16 +298,12 @@
 
             document.getElementById('year').textContent = new Date().getFullYear();
 
-            // --- INITIAL STATIC DATA ---
             const staticNutritionTips = [
                 "اشرب كمية كافية من الماء يوميًا للحفاظ على ترطيب الجسم.",
                 "ركز على تناول الخضروات والفواكه الطازجة في كل وجبة.",
                 "استبدل الحبوب المكررة بالحبوب الكاملة مثل الأرز البني والخبز الأسمر.",
                 "قلل من تناول الأطعمة المصنعة والسكريات المضافة.",
                 "اختر مصادر البروتين الصحية مثل الدجاج، السمك، البقوليات، والبيض.",
-                "تناول وجبات صغيرة ومتعددة على مدار اليوم بدلاً من وجبات كبيرة قليلة.",
-                "استخدم الزيوت الصحية مثل زيت الزيتون وزيت عباد الشمس بكميات معتدلة.",
-                "تجنب الإفراط في تناول الملح والأطعمة عالية الصوديوم."
             ];
 
             // --- RENDER FUNCTIONS ---
@@ -323,9 +323,14 @@
                         li.innerHTML = `
                             <div class="flex justify-between items-center w-full mb-2">
                                 <strong class="text-green-800 block text-lg dark:text-green-300">${meal.recipeName}</strong>
-                                <button data-id="${meal.id}" class="delete-meal-btn text-red-500 hover:text-red-700 transition duration-200" title="حذف الوجبة">
-                                    <i data-lucide="x-circle" class="w-6 h-6 pointer-events-none"></i>
-                                </button>
+                                <div class="flex items-center">
+                                    <button data-id="${meal.id}" data-icon="brain-circuit" class="analyze-planned-btn text-blue-500 hover:text-blue-700 transition duration-200 mr-2" title="تحليل الوجبة">
+                                        <i data-lucide="brain-circuit" class="w-6 h-6 pointer-events-none"></i>
+                                    </button>
+                                    <button data-id="${meal.id}" class="delete-meal-btn text-red-500 hover:text-red-700 transition duration-200" title="حذف الوجبة">
+                                        <i data-lucide="x-circle" class="w-6 h-6 pointer-events-none"></i>
+                                    </button>
+                                </div>
                             </div>
                             <span class="text-gray-700 text-sm mb-2 dark:text-gray-300">
                                 <span class="font-semibold">المكونات:</span> ${meal.ingredients.join('، ')}
@@ -354,18 +359,16 @@
                     noGroceriesMessage.classList.remove('hidden');
                 } else {
                     noGroceriesMessage.classList.add('hidden');
-                    mealPlans.forEach((meal, index) => {
+                    mealPlans.forEach((meal) => {
                         const mealContainer = document.createElement('div');
                         mealContainer.className = "bg-teal-50 p-4 rounded-lg border border-teal-100 dark:bg-gray-700 dark:border-teal-600";
-                        
                         const mealHeader = document.createElement('div');
                         mealHeader.className = "flex justify-between items-center w-full mb-2";
                         mealHeader.innerHTML = `
                             <h4 class="text-lg font-semibold text-teal-800 dark:text-teal-300">${meal.recipeName}</h4>
                             <button data-id="${meal.id}" class="delete-meal-btn text-red-500 hover:text-red-700 transition duration-200" title="حذف الوجبة من القائمة">
                                 <i data-lucide="x-circle" class="w-6 h-6 pointer-events-none"></i>
-                            </button>
-                        `;
+                            </button>`;
                         mealContainer.appendChild(mealHeader);
 
                         const ingredientsList = document.createElement('ul');
@@ -377,12 +380,6 @@
                         });
                         mealContainer.appendChild(ingredientsList);
                         groceryList.appendChild(mealContainer);
-
-                        if (index < mealPlans.length - 1) {
-                            const separator = document.createElement('div');
-                            separator.className = "my-4 border-t-2 border-teal-200 dark:border-teal-600";
-                            groceryList.appendChild(separator);
-                        }
                     });
                 }
             };
@@ -397,79 +394,86 @@
                             <h4 class="text-xl font-semibold text-purple-800 mb-2 dark:text-purple-300">${meal.recipeName}</h4>
                             <p class="text-gray-700 text-sm mb-2 dark:text-gray-300"><span class="font-semibold">المكونات:</span> ${meal.ingredients.join('، ')}</p>
                             <p class="text-gray-700 text-sm mb-2 dark:text-gray-300"><span class="font-semibold">طريقة التحضير:</span> ${meal.preparation}</p>
-                            ${meal.youtubeSearchQuery ? `<a href="https://www.youtube.com/results?search_query=${encodeURIComponent(meal.youtubeSearchQuery)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center text-red-600 hover:text-red-800 transition duration-200 font-semibold text-sm mt-1 dark:text-red-400" title="شاهد فيديو التحضير على يوتيوب">
-                                <i data-lucide="youtube" class="w-5 h-5 ml-2"></i> شاهد طريقة التحضير على يوتيوب</a>` : ''}
+                            ${meal.youtubeSearchQuery ? `<a href="https://www.youtube.com/results?search_query=${encodeURIComponent(meal.youtubeSearchQuery)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center text-red-600 hover:text-red-800 transition duration-200 font-semibold text-sm mt-1 dark:text-red-400" title="شاهد فيديو التحضير على يوتيوب"><i data-lucide="youtube" class="w-5 h-5 ml-2"></i> شاهد طريقة التحضير</a>` : ''}
                             <div class="flex flex-col sm:flex-row gap-2 mt-4">
-                                <button data-id="${meal.id}" class="add-suggested-btn w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md flex items-center justify-center">
-                                    <i data-lucide="plus-circle" class="w-5 h-5 ml-2 pointer-events-none"></i> إضافة للخطط
-                                </button>
-                                <button data-id="${meal.id}" class="clear-suggested-btn w-full sm:w-auto bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md flex items-center justify-center">
-                                    <i data-lucide="x-circle" class="w-5 h-5 pointer-events-none"></i>
-                                </button>
-                            </div>
-                        `;
+                                <button data-id="${meal.id}" class="add-suggested-btn w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition transform hover:scale-105 shadow-md flex items-center justify-center"><i data-lucide="plus-circle" class="w-5 h-5 ml-2 pointer-events-none"></i> إضافة للخطط</button>
+                                <button data-id="${meal.id}" data-icon="brain-circuit" class="analyze-suggested-btn w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition transform hover:scale-105 shadow-md flex items-center justify-center" title="تحليل الوجبة"><i data-lucide="brain-circuit" class="w-5 h-5 pointer-events-none"></i></button>
+                                <button data-id="${meal.id}" class="clear-suggested-btn w-full sm:w-auto bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg transition transform hover:scale-105 shadow-md flex items-center justify-center"><i data-lucide="x-circle" class="w-5 h-5 pointer-events-none"></i></button>
+                            </div>`;
                         suggestedMealsList.appendChild(mealCard);
                     });
                 }
                 lucide.createIcons();
             };
             
-            const renderStaticTips = () => {
+            const renderAnalysisView = () => {
                 if (tipsInterval) clearInterval(tipsInterval);
+
+                if (analysisHistory.length === 0 || currentAnalysisIndex < 0) {
+                    renderStaticTips();
+                    return;
+                }
+                
+                const currentAnalysis = analysisHistory[currentAnalysisIndex];
+                const titleText = `تحليل وجبة: ${currentAnalysis.mealName}`;
+                
+                const navButtonsHTML = `
+                    <div class="flex items-center gap-2">
+                        <button id="prev-analysis-btn" class="p-1 text-gray-500 hover:text-blue-500 transition-colors duration-200 rounded-full" title="التحليل السابق" ${currentAnalysisIndex === 0 ? 'disabled' : ''}>
+                            <i data-lucide="arrow-right-circle" class="w-6 h-6"></i>
+                        </button>
+                        <span class="font-semibold text-gray-600 dark:text-gray-400 text-sm">${currentAnalysisIndex + 1} / ${analysisHistory.length}</span>
+                        <button id="next-analysis-btn" class="p-1 text-gray-500 hover:text-blue-500 transition-colors duration-200 rounded-full" title="التحليل التالي" ${currentAnalysisIndex === analysisHistory.length - 1 ? 'disabled' : ''}>
+                            <i data-lucide="arrow-left-circle" class="w-6 h-6"></i>
+                        </button>
+                    </div>`;
 
                 nutritionTipsHeader.innerHTML = `
-                    <h2 class="flex items-center text-2xl font-bold text-orange-800 mb-4 dark:text-orange-300">
-                        <i data-lucide="lightbulb" class="w-7 h-7 ml-2 text-orange-600 dark:text-orange-400"></i>
-                        نصائح غذائية
-                    </h2>`;
-                
-                const displayTip = () => {
-                    const tip = staticNutritionTips[currentTipIndex];
-                    nutritionTipsContent.innerHTML = `
-                        <div class="bg-orange-50 p-4 rounded-lg shadow-sm flex items-start border border-orange-100 dynamic-tip-enter dark:bg-gray-700 dark:border-orange-600">
-                            <span class="w-3 h-3 bg-orange-500 rounded-full mt-1.5 ml-3 flex-shrink-0"></span>
-                            <p class="text-gray-700 dark:text-gray-300">${tip}</p>
-                        </div>
-                    `;
-                    setTimeout(() => {
-                        const newTipElement = nutritionTipsContent.querySelector('.dynamic-tip-enter');
-                        if (newTipElement) {
-                            newTipElement.classList.remove('dynamic-tip-enter');
-                            newTipElement.classList.add('dynamic-tip-enter-active');
-                        }
-                    }, 10);
-                    
-                    currentTipIndex = (currentTipIndex + 1) % staticNutritionTips.length;
-                };
-
-                displayTip();
-                tipsInterval = setInterval(displayTip, 5000);
-                lucide.createIcons();
-            };
-            
-            const renderDynamicTips = (analysisText, mealName) => {
-                if (tipsInterval) clearInterval(tipsInterval);
-                
-                const titleText = mealName ? `تحليل وجبة: ${mealName}` : 'تحليل المكونات';
-
-                 nutritionTipsHeader.innerHTML = `
-                    <div class="flex flex-col">
-                        <div class="flex items-center text-2xl font-bold text-blue-800 mb-1 dark:text-blue-300">
+                    <div class="flex justify-between items-center w-full mb-2">
+                        <div class="flex items-center">
                             <i data-lucide="sliders-horizontal" class="w-7 h-7 ml-2 text-blue-600 dark:text-blue-400"></i>
-                            <h2>${titleText}</h2>
+                            <h2 class="text-xl font-bold text-blue-800 dark:text-blue-300">${titleText}</h2>
                         </div>
+                        <button id="clear-analysis-btn" class="p-1 text-gray-500 hover:text-red-500 transition-colors duration-200 rounded-full" title="مسح التحليل الحالي">
+                            <i data-lucide="x" class="w-6 h-6"></i>
+                        </button>
                     </div>
-                    <button id="clear-analysis-btn" class="absolute top-0 left-0 p-1 text-gray-500 hover:text-red-500 transition-colors duration-200 rounded-full" title="مسح التحليل">
-                        <i data-lucide="x" class="w-6 h-6"></i>
-                    </button>
+                    ${navButtonsHTML}
                     `;
-                const formattedText = analysisText.split('\n').map(line => {
+
+                const formattedText = currentAnalysis.text.split('\n').map(line => {
                     if (line.trim().startsWith('*')) {
                         return `<li class="flex items-start"><span class="ml-2 text-blue-500">•</span>${line.substring(1).trim()}</li>`;
                     }
                     return `<p>${line.trim()}</p>`;
                 }).join('');
                 nutritionTipsContent.innerHTML = `<div class="prose max-w-none text-gray-700 dark:text-gray-300"><ul class="space-y-2">${formattedText}</ul></div>`;
+                
+                lucide.createIcons();
+            };
+
+            const renderStaticTips = () => {
+                if (tipsInterval) clearInterval(tipsInterval);
+                nutritionTipsHeader.innerHTML = `
+                    <h2 class="flex items-center text-2xl font-bold text-orange-800 mb-4 dark:text-orange-300">
+                        <i data-lucide="lightbulb" class="w-7 h-7 ml-2 text-orange-600 dark:text-orange-400"></i>
+                        نصائح غذائية
+                    </h2>`;
+                const displayTip = () => {
+                    const tip = staticNutritionTips[currentTipIndex];
+                    nutritionTipsContent.innerHTML = `
+                        <div class="bg-orange-50 p-4 rounded-lg shadow-sm flex items-start border border-orange-100 dynamic-tip-enter dark:bg-gray-700 dark:border-orange-600">
+                            <span class="w-3 h-3 bg-orange-500 rounded-full mt-1.5 ml-3 flex-shrink-0"></span>
+                            <p class="text-gray-700 dark:text-gray-300">${tip}</p>
+                        </div>`;
+                    setTimeout(() => {
+                        const newTipElement = nutritionTipsContent.querySelector('.dynamic-tip-enter');
+                        if (newTipElement) newTipElement.classList.add('dynamic-tip-enter-active');
+                    }, 10);
+                    currentTipIndex = (currentTipIndex + 1) % staticNutritionTips.length;
+                };
+                displayTip();
+                tipsInterval = setInterval(displayTip, 5000);
                 lucide.createIcons();
             };
             
@@ -477,27 +481,19 @@
             const showCustomNotification = (message) => {
                 const notification = document.getElementById('notification');
                 const notificationMessage = document.getElementById('notification-message');
-                
-                if (!notification || !notificationMessage) { return; }
-                
+                if (!notification || !notificationMessage) return;
                 notificationMessage.textContent = message;
                 notification.classList.remove('hidden');
-                notification.classList.add('opacity-100', 'scale-100');
-                setTimeout(() => {
-                    notification.classList.remove('opacity-100', 'scale-100');
-                    notification.classList.add('hidden');
-                }, 3000);
+                setTimeout(() => { notification.classList.add('hidden'); }, 3000);
             };
 
             const toggleLoading = (button, isLoading, originalText, iconName) => {
                 const iconContainer = button.querySelector('.icon-container');
                 const textSpan = button.querySelector('.button-text');
-                
-                if (!iconContainer || !textSpan) { return; }
-
+                if (!iconContainer || !textSpan) return;
                 if (isLoading) {
                     button.disabled = true;
-                    iconContainer.innerHTML = `<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+                    iconContainer.innerHTML = `<svg class="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A8 8 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
                     textSpan.textContent = 'جاري...';
                 } else {
                     button.disabled = false;
@@ -508,31 +504,41 @@
                 }
             };
             
+            const toggleIconLoading = (button, isLoading) => {
+                if (isLoading) {
+                    button.disabled = true;
+                    button.innerHTML = `<svg class="animate-spin h-6 w-6" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A8 8 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+                } else {
+                    button.disabled = false;
+                    const icon = button.dataset.icon || 'brain-circuit';
+                    button.innerHTML = `<i data-lucide="${icon}" class="w-6 h-6 pointer-events-none"></i>`;
+                    lucide.createIcons();
+                }
+            };
+            
             const toggleDarkMode = () => {
-    if (htmlElement.classList.contains('dark')) {
-        htmlElement.classList.remove('dark');
-        localStorage.setItem('theme', 'light');
-        themeIconElement.setAttribute('data-lucide', 'moon'); // 🌙 في الوضع النهاري
-    } else {
-        htmlElement.classList.add('dark');
-        localStorage.setItem('theme', 'dark');
-        themeIconElement.setAttribute('data-lucide', 'sun'); // ☀️ في الوضع الليلي
-    }
-    lucide.createIcons();
-};
+                if (htmlElement.classList.contains('dark')) {
+                    htmlElement.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                    themeIconElement.setAttribute('data-lucide', 'moon');
+                } else {
+                    htmlElement.classList.add('dark');
+                    localStorage.setItem('theme', 'dark');
+                    themeIconElement.setAttribute('data-lucide', 'sun');
+                }
+                lucide.createIcons();
+            };
             
             const savedTheme = localStorage.getItem('theme');
-if (savedTheme === 'dark') {
-    htmlElement.classList.add('dark');
-    themeIconElement.setAttribute('data-lucide', 'sun'); // ☀️ للوضع الليلي
-} else {
-    htmlElement.classList.remove('dark');
-    themeIconElement.setAttribute('data-lucide', 'moon'); // 🌙 للوضع النهاري
-}
-lucide.createIcons();
+            if (savedTheme === 'dark') {
+                htmlElement.classList.add('dark');
+                themeIconElement.setAttribute('data-lucide', 'sun');
+            } else {
+                themeIconElement.setAttribute('data-lucide', 'moon');
+            }
+            lucide.createIcons();
 
-            // --- LOCAL STORAGE DATA MANAGEMENT ---
-            
+            // --- LOCAL STORAGE & USAGE DATA MANAGEMENT ---
             const loadUserDataFromLocalStorage = () => {
                 try {
                     const savedData = localStorage.getItem('userData');
@@ -541,74 +547,38 @@ lucide.createIcons();
                         mealPlans = data.mealPlans || [];
                         suggestedMeals = data.suggestedMeals || [];
                         dietaryPreferences = data.dietaryPreferences || [];
-                        
                         renderMealPlans();
                         renderSuggestedMeals();
-                        dietaryPreferenceCheckboxes.forEach(checkbox => {
-                            checkbox.checked = dietaryPreferences.includes(checkbox.value);
-                        });
-                        showCustomNotification("تم تحميل بياناتك المحفوظة بنجاح!");
+                        dietaryPreferenceCheckboxes.forEach(cb => { cb.checked = dietaryPreferences.includes(cb.value); });
+                        showCustomNotification("تم تحميل بياناتك المحفوظة!");
                     }
-                } catch (e) {
-                    showCustomNotification("فشل تحميل بياناتك من التخزين المحلي.");
-                }
+                } catch (e) { console.error("Failed to load user data:", e); }
             };
 
             const saveUserDataToLocalStorage = () => {
                 try {
-                    const dataToSave = {
-                        mealPlans: mealPlans,
-                        suggestedMeals: suggestedMeals,
-                        dietaryPreferences: dietaryPreferences
-                    };
-                    localStorage.setItem('userData', JSON.stringify(dataToSave));
-                } catch (e) {
-                    showCustomNotification("فشل حفظ بياناتك. قد يكون التخزين ممتلئًا.");
-                }
+                    localStorage.setItem('userData', JSON.stringify({ mealPlans, suggestedMeals, dietaryPreferences }));
+                } catch (e) { console.error("Failed to save user data:", e); }
             };
             
-            const getTodayDateString = () => {
-                const today = new Date();
-                return today.toISOString().split('T')[0];
-            };
+            const getTodayDateString = () => new Date().toISOString().split('T')[0];
 
             const loadUsageDataFromLocalStorage = () => {
-                try {
-                    const savedUsage = localStorage.getItem('apiUsage');
-                    const today = getTodayDateString();
-                    if (savedUsage) {
-                        const data = JSON.parse(savedUsage);
-                        if (data.date === today) {
-                            usageCount = data.count || 0;
-                        } else {
-                            usageCount = 0;
-                            saveUsageDataToLocalStorage();
-                        }
-                    } else {
-                        usageCount = 0;
-                        saveUsageDataToLocalStorage();
-                    }
-                    renderUsageCount();
-                } catch (e) {
-                    console.error("Error loading usage data from Local Storage:", e);
+                const savedUsage = localStorage.getItem('apiUsage');
+                if (savedUsage) {
+                    const data = JSON.parse(savedUsage);
+                    usageCount = data.date === getTodayDateString() ? data.count : 0;
                 }
+                renderUsageCount();
             };
 
             const saveUsageDataToLocalStorage = () => {
-                try {
-                    const usageData = {
-                        count: usageCount,
-                        date: getTodayDateString()
-                    };
-                    localStorage.setItem('apiUsage', JSON.stringify(usageData));
-                } catch (e) {
-                    console.error("Error saving usage data to Local Storage:", e);
-                }
+                localStorage.setItem('apiUsage', JSON.stringify({ count: usageCount, date: getTodayDateString() }));
             };
 
             const checkAndIncrementUsage = () => {
                 if (usageCount >= MAX_DAILY_REQUESTS) {
-                    showCustomNotification(`لقد وصلت إلى الحد الأقصى للطلبات اليومية (${MAX_DAILY_REQUESTS} طلبات).`);
+                    showCustomNotification(`لقد وصلت للحد الأقصى للطلبات اليومية.`);
                     renderUsageCount();
                     return false;
                 }
@@ -620,33 +590,18 @@ lucide.createIcons();
 
             const startCountdown = () => {
                 if (countdownInterval) clearInterval(countdownInterval);
-
-                const getResetTime = () => {
-                    const now = new Date();
-                    const resetTime = new Date(now);
-                    resetTime.setDate(now.getDate() + 1);
-                    resetTime.setHours(0, 0, 0, 0);
-                    return resetTime;
-                };
-
                 const updateTimer = () => {
-                    const distance = getResetTime() - new Date().getTime();
-
+                    const now = new Date();
+                    const resetTime = new Date(now).setHours(24, 0, 0, 0);
+                    const distance = resetTime - now;
                     if (distance < 0) {
                         clearInterval(countdownInterval);
-                        resetTimerElement.classList.add('hidden');
-                        apiUsageInfoElement.classList.remove('hidden');
                         loadUsageDataFromLocalStorage();
                         return;
                     }
-
-                    const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-                    const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-                    resetTimerElement.textContent = `محاولات جديدة بعد: ${hours}س ${minutes}د ${seconds}ث`;
+                    const h = Math.floor(distance / 36e5), m = Math.floor(distance % 36e5 / 6e4), s = Math.floor(distance % 6e4 / 1e3);
+                    resetTimerElement.textContent = `محاولات جديدة بعد: ${h}س ${m}د ${s}ث`;
                 };
-
                 updateTimer();
                 countdownInterval = setInterval(updateTimer, 1000);
             };
@@ -660,72 +615,57 @@ lucide.createIcons();
                     if (countdownInterval) clearInterval(countdownInterval);
                     apiUsageInfoElement.classList.remove('hidden');
                     resetTimerElement.classList.add('hidden');
-                    const remaining = MAX_DAILY_REQUESTS - usageCount;
-                    apiUsageInfoElement.textContent = `الطلبات المتبقية: ${remaining}`;
+                    apiUsageInfoElement.textContent = `الطلبات المتبقية: ${MAX_DAILY_REQUESTS - usageCount}`;
                 }
             };
 
             // --- CORE LOGIC FUNCTIONS ---
-            
             const addSuggestedMealToPlan = (id) => {
-                const mealToAdd = suggestedMeals.find(meal => meal.id === id);
+                const mealToAdd = suggestedMeals.find(m => m.id === id);
                 if (mealToAdd) {
                     if (mealPlans.length >= MAX_MEAL_PLANS) {
-                        showCustomNotification(`لا يمكن إضافة المزيد من الوجبات. الحد الأقصى هو ${MAX_MEAL_PLANS}.`);
+                        showCustomNotification(`الحد الأقصى للوجبات هو ${MAX_MEAL_PLANS}.`);
                         return;
                     }
-
                     mealPlans.push({ ...mealToAdd });
-                    suggestedMeals = suggestedMeals.filter(meal => meal.id !== id);
+                    suggestedMeals = suggestedMeals.filter(m => m.id !== id);
                     renderMealPlans();
                     renderSuggestedMeals();
                     saveUserDataToLocalStorage();
-                    showCustomNotification("تم إضافة الوجبة المقترحة بنجاح!");
                 }
             };
 
             const clearSuggestedMeal = (id) => {
-                suggestedMeals = suggestedMeals.filter(meal => meal.id !== id);
+                suggestedMeals = suggestedMeals.filter(m => m.id !== id);
                 renderSuggestedMeals();
                 saveUserDataToLocalStorage();
-                showCustomNotification("تم مسح الاقتراح.");
             };
             
             const deleteMealPlan = (id) => {
-                mealPlans = mealPlans.filter(meal => meal.id !== id);
+                mealPlans = mealPlans.filter(m => m.id !== id);
                 renderMealPlans();
                 saveUserDataToLocalStorage();
-                showCustomNotification("تم حذف الوجبة.");
             };
             
-            // --- API CALLS (GEMINI via Cloudflare Worker) ---
+            // --- API CALLS ---
             const callGeminiAPI = async (payload) => {
                 try {
-                    const response = await fetch(workerUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
+                    const response = await fetch(workerUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                     return await response.json();
                 } catch (error) {
-                    showCustomNotification("حدث خطأ في الاتصال بالذكاء الاصطناعي.");
+                    showCustomNotification("خطأ في الاتصال بالذكاء الاصطناعي.");
                     return null;
                 }
             };
 
             const generateRecipe = async (isGeneral) => {
                 if (isLoadingRecipe || isAnalyzingIngredients || isAnalyzingImage) return;
-
                 const ingredients = userIngredientsInput.value.trim();
                 if (!isGeneral && !ingredients) {
-                    showCustomNotification("الرجاء إدخال المكونات المتوفرة لديك أولاً.");
+                    showCustomNotification("الرجاء إدخال المكونات أولاً.");
                     return;
                 }
-                
                 if (!checkAndIncrementUsage()) return;
 
                 isLoadingRecipe = true;
@@ -733,183 +673,84 @@ lucide.createIcons();
                 const originalText = button.querySelector('.button-text').textContent;
                 toggleLoading(button, true, originalText);
                 
-                const selectedCuisine = document.querySelector('input[name="cuisine"]:checked').value;
-                const selectedMealType = mealTypeSelect.value;
-                
-                let cuisineText;
-                switch (selectedCuisine) {
-                    case 'sudanese': cuisineText = 'سودانية'; break;
-                    case 'egyptian': cuisineText = 'مصرية'; break;
-                    case 'turkish': cuisineText = 'تركية'; break;
-                    case 'arabic': cuisineText = 'عربية'; break;
-                    default: cuisineText = 'عربية'; break;
-                }
-                
-                const preferencesText = dietaryPreferences.length > 0
-                    ? `، مع مراعاة التفضيلات الغذائية التالية: ${dietaryPreferences.map(p => {
-                        switch(p) {
-                            case 'vegetarian': return 'نباتي';
-                            case 'vegan': return 'فيجن';
-                            case 'gluten-free': return 'خالي من الغلوتين';
-                            default: return '';
-                        }
-                    }).filter(Boolean).join(' و ')}`
-                    : '';
+                const cuisine = document.querySelector('input[name="cuisine"]:checked').value;
+                const mealType = mealTypeSelect.value;
+                const prefs = dietaryPreferences.join(', ');
                 
                 const prompt = isGeneral 
-                    ? `اقترح وصفة جديدة ومختلفة من نوع ${selectedMealType} من المطبخ ${cuisineText}${preferencesText}. تجنب تكرار الاقتراحات السابقة. قدم اسم الوصفة، قائمة المكونات، وطريقة التحضير، وعبارة بحث لـ YouTube.`
-                    : `باستخدام المكونات التالية: "${ingredients}". اقترح وصفة إبداعية من نوع ${selectedMealType} من المطبخ ${cuisineText}${preferencesText}. قدم اسم الوصفة، قائمة المكونات، طريقة التحضير، وعبارة بحث لـ YouTube.`;
+                    ? `اقترح وصفة جديدة ومختلفة من نوع ${mealType} من المطبخ ${cuisine}${prefs ? ` مع مراعاة ${prefs}` : ''}. تجنب تكرار الاقتراحات السابقة.`
+                    : `باستخدام المكونات التالية: "${ingredients}"، اقترح وصفة إبداعية وفريدة. يجب أن تكون من نوع ${mealType} من المطبخ ${cuisine}${prefs ? ` مع مراعاة ${prefs}` : ''}.`;
 
                 const payload = {
                     contents: [{ role: "user", parts: [{ text: prompt }] }],
-                    generationConfig: {
-                        responseMimeType: "application/json",
-                        temperature: 0.9,
-                        responseSchema: {
-                            type: "OBJECT",
-                            properties: {
-                                "recipeName": { "type": "STRING" },
-                                "ingredients": { "type": "ARRAY", "items": { "type": "STRING" } },
-                                "preparation": { "type": "STRING" },
-                                "youtubeSearchQuery": { "type": "STRING" }
-                            },
-                            "propertyOrdering": ["recipeName", "ingredients", "preparation", "youtubeSearchQuery"]
-                        }
+                    generationConfig: { responseMimeType: "application/json", temperature: 0.9,
+                        responseSchema: { type: "OBJECT", properties: { "recipeName": { "type": "STRING" }, "ingredients": { "type": "ARRAY", "items": { "type": "STRING" } }, "preparation": { "type": "STRING" }, "youtubeSearchQuery": { "type": "STRING" } } }
                     }
                 };
 
                 const result = await callGeminiAPI(payload);
-
                 if (result?.candidates?.[0]?.content?.parts?.[0]?.text) {
                     try {
-                        const newMealData = JSON.parse(result.candidates[0].content.parts[0].text);
-                        const newMeal = { id: Date.now(), ...newMealData };
-                        
+                        const newMeal = { id: Date.now(), ...JSON.parse(result.candidates[0].content.parts[0].text) };
                         suggestedMeals.unshift(newMeal);
-                        
                         renderSuggestedMeals();
                         saveUserDataToLocalStorage();
-                        showCustomNotification("تم اقتراح وجبة جديدة!");
-
-                    } catch (e) {
-                         showCustomNotification("حدث خطأ في تحليل استجابة الخادم.");
-                    }
-                } else {
-                    showCustomNotification("لم يتمكن النظام من اقتراح وجبة حاليًا تحقق من حالت الانترنت لديك");
+                    } catch (e) { showCustomNotification("خطأ في تحليل استجابة الخادم."); }
                 }
-
                 isLoadingRecipe = false;
                 toggleLoading(button, false, originalText);
             };
 
-            const analyzeIngredients = async () => {
+            const analyzeMeal = async (meal, buttonElement) => {
                 if (isLoadingRecipe || isAnalyzingIngredients || isAnalyzingImage) return;
-
-                let ingredients = userIngredientsInput.value.trim();
-                let mealName = null;
-                
-                // --- MODIFIED LOGIC ---
-                if (!ingredients && suggestedMeals.length > 0) {
-                    const latestSuggestedMeal = suggestedMeals[0];
-                    ingredients = latestSuggestedMeal.ingredients.join('، ');
-                    mealName = latestSuggestedMeal.recipeName; // Capture the meal name
-                    showCustomNotification(`سيتم تحليل مكونات وجبة: ${mealName}`);
-                } else if (ingredients) {
-                    mealName = "مكوناتك المخصصة"; // Set a generic name for manual input
-                }
-                // --- END MODIFIED LOGIC ---
-                
-                if (!ingredients) {
-                    showCustomNotification("الرجاء إدخال بعض المكونات أو اقتراح وجبة أولاً لتحليلها.");
+                if (!meal || !meal.ingredients?.length) {
+                    showCustomNotification("لا توجد مكونات لتحليلها.");
                     return;
                 }
-
                 if (!checkAndIncrementUsage()) return;
 
                 isAnalyzingIngredients = true;
-                const button = analyzeIngredientsBtn;
-                const originalText = button.querySelector('.button-text').textContent;
-                toggleLoading(button, true, originalText);
+                toggleIconLoading(buttonElement, true);
                 
-                const preferencesText = dietaryPreferences.length > 0
-                    ? `، مع الأخذ في الاعتبار التفضيلات الغذائية التالية: ${dietaryPreferences.map(p => {
-                        switch(p) {
-                            case 'vegetarian': return 'نباتي';
-                            case 'vegan': return 'فيجن';
-                            case 'gluten-free': return 'خالي من الغلوتين';
-                            default: return '';
-                        }
-                    }).filter(Boolean).join(' و ')}`
-                    : '';
-
-                const prompt = `بناءً على المكونات التالية: "${ingredients}"${preferencesText}، قم بتقديم تحليل مختصر ومفيد. ركز على القيمة الغذائية الرئيسية واقترح بدائل بسيطة أو إضافات لتعزيز الفائدة. يجب أن تكون الإجابة على شكل نقاط (bullet points) فقط، لا تزيد عن 5 نقاط.`;
-                const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
-                
-                const result = await callGeminiAPI(payload);
+                const prompt = `حلل القيمة الغذائية لهذه المكونات: "${meal.ingredients.join(', ')}". قدم نصائح أو بدائل صحية. الإجابة كنقاط مختصرة (5 نقاط كحد أقصى).`;
+                const result = await callGeminiAPI({ contents: [{ role: "user", parts: [{ text: prompt }] }] });
 
                 if (result?.candidates?.[0]?.content?.parts?.[0]?.text) {
                     const analysisText = result.candidates[0].content.parts[0].text;
-                    renderDynamicTips(analysisText, mealName); // Pass the meal name to the render function
+                    const newAnalysis = { text: analysisText, mealName: meal.recipeName };
+
+                    if (analysisHistory.length >= MAX_ANALYSIS_HISTORY) {
+                        analysisHistory.shift(); // Remove the oldest
+                    }
+                    analysisHistory.push(newAnalysis);
+                    currentAnalysisIndex = analysisHistory.length - 1;
+
+                    renderAnalysisView();
                     showCustomNotification("تم تحليل المكونات بنجاح!");
                 } else {
-                    renderStaticTips();
-                    showCustomNotification("لم يتمكن النظام من تحليل المكونات حاليًا.");
+                    showCustomNotification("لم يتمكن النظام من تحليل المكونات.");
                 }
-                
                 isAnalyzingIngredients = false;
-                toggleLoading(button, false, originalText);
+                toggleIconLoading(buttonElement, false);
             };
 
             const analyzeImageIngredients = async (base64ImageData, mimeType) => {
-                if (isLoadingRecipe || isAnalyzingIngredients || isAnalyzingImage) return;
-                
                 if (!checkAndIncrementUsage()) return;
-
                 isAnalyzingImage = true;
                 const button = imageSearchBtn;
                 const originalText = button.querySelector('.button-text').textContent;
                 toggleLoading(button, true, originalText, 'camera');
 
-                const preferencesText = dietaryPreferences.length > 0
-                    ? `، مع الأخذ في الاعتبار التفضيلات الغذائية التالية: ${dietaryPreferences.map(p => {
-                        switch(p) {
-                            case 'vegetarian': return 'نباتي';
-                            case 'vegan': return 'فيجن';
-                            case 'gluten-free': return 'خالي من الغلوتين';
-                            default: return '';
-                        }
-                    }).filter(Boolean).join(' و ')}`
-                    : '';
-
-                const prompt = `ما هي المكونات الصالحة للطبخ التي تراها في هذه الصورة؟ اذكر فقط المكونات، وافصل بينها بفاصلة${preferencesText}.`;
-                
-                const payload = {
-                    contents: [
-                        {
-                            role: "user",
-                            parts: [
-                                { text: prompt },
-                                {
-                                    inlineData: {
-                                        mimeType: mimeType,
-                                        data: base64ImageData
-                                    }
-                                }
-                            ]
-                        }
-                    ]
-                };
+                const prompt = `ما هي المكونات الصالحة للطبخ في هذه الصورة؟ اذكر المكونات فقط مفصولة بفاصلة.`;
+                const payload = { contents: [ { role: "user", parts: [ { text: prompt }, { inlineData: { mimeType, data: base64ImageData } } ] } ] };
 
                 const result = await callGeminiAPI(payload);
-
                 if (result?.candidates?.[0]?.content?.parts?.[0]?.text) {
-                    const ingredientsList = result.candidates[0].content.parts[0].text.trim();
-                    userIngredientsInput.value = ingredientsList;
-                    showCustomNotification("تم التعرف على المكونات بنجاح!");
+                    userIngredientsInput.value = result.candidates[0].content.parts[0].text.trim();
+                    showCustomNotification("تم التعرف على المكونات!");
                 } else {
-                    showCustomNotification("لم يتمكن النظام من التعرف على أي مكونات في الصورة.");
+                    showCustomNotification("لم يتم التعرف على مكونات.");
                 }
-
                 isAnalyzingImage = false;
                 toggleLoading(button, false, originalText, 'camera');
             };
@@ -917,21 +758,18 @@ lucide.createIcons();
             // --- EVENT LISTENERS ---
             suggestFromIngredientsBtn.addEventListener('click', () => generateRecipe(false));
             suggestGeneralBtn.addEventListener('click', () => generateRecipe(true));
-            analyzeIngredientsBtn.addEventListener('click', analyzeIngredients);
             themeToggleBtn.addEventListener('click', toggleDarkMode);
             
             clearGroceryBtn.addEventListener('click', () => {
                 mealPlans = [];
                 renderMealPlans();
                 saveUserDataToLocalStorage();
-                showCustomNotification("تم مسح قائمة التسوق والوجبات المخططة.");
+                showCustomNotification("تم مسح قائمة التسوق والوجبات.");
             });
 
             dietaryPreferenceCheckboxes.forEach(checkbox => {
                 checkbox.addEventListener('change', () => {
-                    dietaryPreferences = Array.from(dietaryPreferenceCheckboxes)
-                                                .filter(cb => cb.checked)
-                                                .map(cb => cb.value);
+                    dietaryPreferences = Array.from(dietaryPreferenceCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
                     saveUserDataToLocalStorage();
                 });
             });
@@ -939,41 +777,57 @@ lucide.createIcons();
             document.body.addEventListener('click', (e) => {
                 const targetButton = e.target.closest('button');
                 if (!targetButton) return;
-
                 const mealId = parseInt(targetButton.dataset.id, 10);
                 
-                if (targetButton.classList.contains('add-suggested-btn')) {
-                    addSuggestedMealToPlan(mealId);
+                if (targetButton.classList.contains('add-suggested-btn')) addSuggestedMealToPlan(mealId);
+                if (targetButton.classList.contains('clear-suggested-btn')) clearSuggestedMeal(mealId);
+                if (targetButton.classList.contains('delete-meal-btn')) deleteMealPlan(mealId);
+                
+                if (targetButton.classList.contains('analyze-suggested-btn') || targetButton.classList.contains('analyze-planned-btn')) {
+                    const analysisTutorialShown = localStorage.getItem('analysisTutorialShown');
+                    if (!analysisTutorialShown) {
+                        const userConfirmed = confirm("هذا الزر يستخدم الذكاء الاصطناعي لتحليل مكونات الوجبة وتقديم نصائح. هل تريد المتابعة؟");
+                        if (userConfirmed) {
+                            localStorage.setItem('analysisTutorialShown', 'true');
+                        } else { return; }
+                    }
+                    const mealSource = targetButton.classList.contains('analyze-suggested-btn') ? suggestedMeals : mealPlans;
+                    const mealToAnalyze = mealSource.find(m => m.id === mealId);
+                    if (mealToAnalyze) analyzeMeal(mealToAnalyze, targetButton);
                 }
-                if (targetButton.classList.contains('clear-suggested-btn')) {
-                    clearSuggestedMeal(mealId);
-                }
-                if (targetButton.classList.contains('delete-meal-btn')) {
-                    deleteMealPlan(mealId);
-                }
+
                 if (targetButton.id === 'clear-analysis-btn') {
-                    renderStaticTips();
-                    userIngredientsInput.value = ''; // Clear the textarea when clearing analysis
-                    showCustomNotification("تم مسح التحليل.");
+                    if (currentAnalysisIndex > -1) {
+                        analysisHistory.splice(currentAnalysisIndex, 1);
+                        if (currentAnalysisIndex >= analysisHistory.length) {
+                            currentAnalysisIndex = analysisHistory.length - 1;
+                        }
+                        renderAnalysisView();
+                        showCustomNotification("تم مسح التحليل.");
+                    }
+                }
+
+                if (targetButton.id === 'prev-analysis-btn') {
+                    if (currentAnalysisIndex > 0) {
+                        currentAnalysisIndex--;
+                        renderAnalysisView();
+                    }
+                }
+                
+                if (targetButton.id === 'next-analysis-btn') {
+                    if (currentAnalysisIndex < analysisHistory.length - 1) {
+                        currentAnalysisIndex++;
+                        renderAnalysisView();
+                    }
                 }
             });
 
-            imageSearchBtn.addEventListener('click', () => {
-                imageUploadInput.click();
-            });
-
+            imageSearchBtn.addEventListener('click', () => imageUploadInput.click());
             imageUploadInput.addEventListener('change', (event) => {
                 const file = event.target.files[0];
-                if (file) {
-                    if (!file.type.startsWith('image/')) {
-                         showCustomNotification('الرجاء اختيار ملف صورة صالح.');
-                         return;
-                    }
+                if (file && file.type.startsWith('image/')) {
                     const reader = new FileReader();
-                    reader.onloadend = () => {
-                        const base64Data = reader.result.split(',')[1];
-                        analyzeImageIngredients(base64Data, file.type);
-                    };
+                    reader.onloadend = () => analyzeImageIngredients(reader.result.split(',')[1], file.type);
                     reader.readAsDataURL(file);
                 }
             });
@@ -982,31 +836,21 @@ lucide.createIcons();
             const initializeApp = () => {
                 loadUserDataFromLocalStorage();
                 loadUsageDataFromLocalStorage();
-                renderStaticTips();
+                renderStaticTips(); 
                 lucide.createIcons();
             };
-
             initializeApp();
         });
     </script>
 <script>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js')
-    .then(function(reg) { 
-        console.log('SW registered', reg); 
-        
-        // التحقق الدوري من وجود تحديث كل ساعة
-        setInterval(() => {
-          reg.update();
-        }, 60 * 60 * 1000); // 60 دقيقة * 60 ثانية * 1000 مللي ثانية
-    })
-    .catch(function(err) { console.warn('SW registration failed', err); });
-
-  // استقبال رسالة من Service Worker عند توفر نسخة جديدة
+  navigator.serviceWorker.register('./sw.js').then(reg => { 
+    console.log('SW registered', reg); 
+    setInterval(() => { reg.update(); }, 3600000);
+  }).catch(err => console.warn('SW registration failed', err));
   navigator.serviceWorker.addEventListener('message', event => {
     if (event.data === 'SW_UPDATED') {
       alert('نسخة جديدة من التطبيق متاحة! يرجى إعادة تحميل الصفحة.');
-      // لإعادة تحميل تلقائي، يمكن استخدام: location.reload();
     }
   });
 }
