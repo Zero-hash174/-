@@ -15,52 +15,30 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* Custom font for the application */
-        body {
-            font-family: 'Cairo', sans-serif;
-        }
-        /* Custom styles for better UX */
+        body { font-family: 'Cairo', sans-serif; }
         .prose ul { list-style-type: disc; padding-right: 1.5rem; }
         .prose li { margin-bottom: 0.5rem; }
         .prose strong { font-weight: 700; }
         .hidden { display: none; }
-
-        /* --- CSS FIX IS HERE --- */
         .dynamic-tip-enter { opacity: 0; }
         .dynamic-tip-enter-active { opacity: 1; transition: opacity 0.5s ease; }
-        
-        /* CSS for the waving Sudanese flag */
-        .flag {
-            width: 30px;
-            height: 20px;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            overflow: hidden;
-            border-radius: 2px;
-        }
-        
+        .grocery-item-label.checked { text-decoration: line-through; opacity: 0.6; }
+        .flag { width: 30px; height: 20px; display: flex; flex-direction: column; position: relative; overflow: hidden; border-radius: 2px; }
         .flag-stripe { flex: 1; }
         .flag-stripe.red { background-color: #d11c24; }
         .flag-stripe.white { background-color: #ffffff; }
         .flag-stripe.black { background-color: #000000; }
-
-        .flag-triangle {
-            width: 0;
-            height: 0;
-            border-style: solid;
-            border-width: 10px 0 10px 13px; /* Adjusted for better proportion */
-            border-color: transparent transparent transparent #00723a;
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
-        
-        /* Disable buttons style */
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
+        .flag-triangle { width: 0; height: 0; border-style: solid; border-width: 10px 0 10px 13px; border-color: transparent transparent transparent #00723a; position: absolute; top: 0; left: 0; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        @keyframes spin-once { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .rotate-icon { animation: spin-once 0.3s ease-in-out; }
+        .btn-ripple { position: relative; overflow: hidden; }
+        .btn-ripple .ripple { position: absolute; border-radius: 50%; background-color: rgba(255, 255, 255, 0.5); transform: scale(0); animation: ripple-effect 0.6s linear; pointer-events: none; }
+        .dark .btn-ripple .ripple { background-color: rgba(0, 0, 0, 0.3); }
+        @keyframes ripple-effect { to { transform: scale(4); opacity: 0; } }
+        .rating-star { cursor: pointer; transition: color 0.2s; }
+        .rating-star.selected { color: #facc15; /* yellow-400 */ }
+        .rating-star:hover { color: #facc15; }
     </style>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="chaf.png">
@@ -73,42 +51,71 @@
 </head>
 <body class="bg-white text-gray-800 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-300">
 
-    <div class="bg-gradient-to-br from-green-50 to-teal-100 dark:bg-none min-h-screen p-4 sm:p-6 flex flex-col items-center">
+    <div id="favorites-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center z-50 p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
+            <header class="flex justify-between items-center p-4 border-b dark:border-gray-700">
+                <h2 class="flex items-center text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                    <i data-lucide="book-marked" class="w-7 h-7 ml-2"></i> وجباتي المفضلة
+                </h2>
+                <button id="close-favorites-btn" class="btn-ripple p-2 rounded-full text-gray-500 hover:text-red-500 transition-colors duration-200 transform active:scale-90">
+                    <i data-lucide="x" class="w-6 h-6 pointer-events-none"></i>
+                </button>
+            </header>
+            <div id="favorites-list" class="p-6 space-y-4 overflow-y-auto">
+                <p id="no-favorites-message" class="text-gray-600 dark:text-gray-400 text-center py-4">لم تقم بإضافة أي وجبات للمفضلة بعد.</p>
+            </div>
+        </div>
+    </div>
 
+    <div id="rating-notes-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center z-[60] p-4">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md">
+            <header class="flex justify-between items-center p-4 border-b dark:border-gray-700">
+                <h2 id="rating-modal-title" class="flex items-center text-xl font-bold text-green-700 dark:text-green-300">
+                    <i data-lucide="star" class="w-6 h-6 ml-2 text-yellow-400"></i> تقييم وملاحظات
+                </h2>
+                <button id="close-rating-modal-btn" class="btn-ripple p-2 rounded-full text-gray-500 hover:text-red-500 transition-colors duration-200 transform active:scale-90">
+                    <i data-lucide="x" class="w-6 h-6 pointer-events-none"></i>
+                </button>
+            </header>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">تقييمك للوصفة:</label>
+                    <div id="rating-stars" class="flex items-center text-gray-300 dark:text-gray-600 text-3xl"></div>
+                </div>
+                <div>
+                    <label for="meal-notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">ملاحظاتك:</label>
+                    <textarea id="meal-notes" rows="4" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400 dark:bg-gray-700 dark:text-gray-100"></textarea>
+                </div>
+                <input type="hidden" id="rating-meal-id">
+                <button id="save-rating-notes-btn" class="btn-ripple w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 active:scale-90 shadow-md flex items-center justify-center gap-2">
+                    <i data-lucide="save" class="w-5 h-5 pointer-events-none"></i> <span>حفظ التقييم والملاحظات</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-gradient-to-br from-green-50 to-teal-100 dark:bg-none min-h-screen p-4 sm:p-6 flex flex-col items-center">
         <div id="notification" class="hidden fixed top-5 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg z-50 transition-all duration-300 ease-in-out transform">
             <span id="notification-message"></span>
         </div>
-        
         <header class="w-full max-w-4xl mb-8">
             <div class="flex justify-between items-center">
-                <button id="theme-toggle" class="p-2 rounded-full text-gray-800 dark:text-gray-100 bg-gray-200 dark:bg-gray-700 transition-colors duration-300">
-                    <i data-lucide="moon" class="w-6 h-6 theme-icon"></i>
-                </button>
-                
+                <div class="flex items-center gap-2">
+                    <button id="theme-toggle" class="btn-ripple p-2 rounded-full text-gray-800 dark:text-gray-100 bg-gray-200 dark:bg-gray-700 transition-colors duration-300"> <i data-lucide="moon" class="w-6 h-6 theme-icon"></i> </button>
+                    <button id="open-favorites-btn" class="btn-ripple p-2 rounded-full text-gray-800 dark:text-gray-100 bg-gray-200 dark:bg-gray-700 transition-colors duration-300"> <i data-lucide="book-marked" class="w-6 h-6"></i> </button>
+                </div>
                 <div class="text-center">
-                    <h1 class="text-4xl sm:text-5xl font-extrabold text-green-700 drop-shadow-lg mb-1 dark:text-green-400">
-                        وصفتي
-                    </h1>
+                    <h1 class="text-4xl sm:text-5xl font-extrabold text-green-700 drop-shadow-lg mb-1 dark:text-green-400">وصفتي</h1>
                     <p class="text-lg sm:text-xl text-teal-600 dark:text-teal-400">مطبخك الذكي</p>
                 </div>
-
-                <div class="flag">
-                    <div class="flag-stripe red"></div>
-                    <div class="flag-stripe white"></div>
-                    <div class="flag-stripe black"></div>
-                    <div class="flag-triangle"></div>
-                </div>
+                <div class="flag"> <div class="flag-stripe red"></div> <div class="flag-stripe white"></div> <div class="flag-stripe black"></div> <div class="flag-triangle"></div> </div>
             </div>
         </header>
-
         <main class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-6">
             <section class="bg-white p-4 sm:p-6 rounded-2xl shadow-xl border border-green-200 col-span-1 md:col-span-2 dark:bg-gray-800 dark:border-green-700">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
                     <div class="flex items-center">
-                        <h2 class="flex items-center text-2xl font-bold text-green-800 dark:text-green-300">
-                            <i data-lucide="chef-hat" class="w-7 h-7 ml-2 text-green-600 dark:text-green-400"></i>
-                            خطط وجباتك
-                        </h2>
+                        <h2 class="flex items-center text-2xl font-bold text-green-800 dark:text-green-300"> <i data-lucide="chef-hat" class="w-7 h-7 ml-2 text-green-600 dark:text-green-400"></i> خطط وجباتك </h2>
                         <div id="meal-plan-count" class="text-sm font-semibold text-green-600 dark:text-green-400 mr-2"></div>
                     </div>
                     <div class="flex flex-col items-start sm:items-end">
@@ -116,132 +123,71 @@
                          <div id="reset-timer" class="hidden text-sm font-semibold text-red-500 dark:text-red-400"></div>
                     </div>
                 </div>
-                
                 <div>
                     <div class="mb-4 p-4 bg-green-50 rounded-lg border border-green-200 dark:bg-gray-700 dark:border-green-600">
                         <span class="font-semibold text-green-800 text-lg mb-3 block text-center sm:text-right dark:text-green-200">اختر المطبخ:</span>
                         <div class="flex flex-wrap justify-center items-center gap-x-4 gap-y-2">
-                            <label class="inline-flex items-center cursor-pointer">
-                                <input type="radio" name="cuisine" value="sudanese" checked class="form-radio h-5 w-5 text-green-600 dark:text-green-400">
-                                <span class="mr-2 text-gray-700 dark:text-gray-300">سودانية</span>
-                            </label>
-                            <label class="inline-flex items-center cursor-pointer">
-                                <input type="radio" name="cuisine" value="egyptian" class="form-radio h-5 w-5 text-green-600 dark:text-green-400">
-                                <span class="mr-2 text-gray-700 dark:text-gray-300">مصرية</span>
-                            </label>
-                            <label class="inline-flex items-center cursor-pointer">
-                                <input type="radio" name="cuisine" value="turkish" class="form-radio h-5 w-5 text-green-600 dark:text-green-400">
-                                <span class="mr-2 text-gray-700 dark:text-gray-300">تركية</span>
-                            </label>
-                            <label class="inline-flex items-center cursor-pointer">
-                                <input type="radio" name="cuisine" value="arabic" class="form-radio h-5 w-5 text-green-600 dark:text-green-400">
-                                <span class="mr-2 text-gray-700 dark:text-gray-300">عربية</span>
-                            </label>
+                            <label class="inline-flex items-center cursor-pointer"><input type="radio" name="cuisine" value="sudanese" checked class="form-radio h-5 w-5 text-green-600 dark:text-green-400"><span class="mr-2 text-gray-700 dark:text-gray-300">سودانية</span></label>
+                            <label class="inline-flex items-center cursor-pointer"><input type="radio" name="cuisine" value="egyptian" class="form-radio h-5 w-5 text-green-600 dark:text-green-400"><span class="mr-2 text-gray-700 dark:text-gray-300">مصرية</span></label>
+                            <label class="inline-flex items-center cursor-pointer"><input type="radio" name="cuisine" value="turkish" class="form-radio h-5 w-5 text-green-600 dark:text-green-400"><span class="mr-2 text-gray-700 dark:text-gray-300">تركية</span></label>
+                            <label class="inline-flex items-center cursor-pointer"><input type="radio" name="cuisine" value="arabic" class="form-radio h-5 w-5 text-green-600 dark:text-green-400"><span class="mr-2 text-gray-700 dark:text-gray-300">عربية</span></label>
                         </div>
                     </div>
-
                     <div class="mb-4 p-4 bg-green-50 rounded-lg border border-green-200 flex flex-col sm:flex-row items-center justify-center gap-4 dark:bg-gray-700 dark:border-green-600">
                         <span class="font-semibold text-green-800 text-lg dark:text-green-200">اختر نوع الوجبة:</span>
                         <select id="meal-type" class="w-full sm:w-auto p-2 pr-8 rounded-lg border border-green-300 focus:outline-none focus:ring-2 focus:ring-green-400 text-right bg-white dark:bg-gray-800 dark:text-gray-100 dark:border-green-600">
-                            <option value="وجبة">وجبة عادية</option>
-                            <option value="فطور">فطور</option>
-                            <option value="غداء">غداء</option>
-                            <option value="عشاء">عشاء</option>
-                            <option value="وجبة عائلية">وجبة عائلية</option>
-                            <option value="وجبة رومانسية">وجبة رومانسية</option>
+                            <option value="وجبة">وجبة عادية</option> <option value="فطور">فطور</option> <option value="غداء">غداء</option> <option value="عشاء">عشاء</option> <option value="وجبة عائلية">وجبة عائلية</option> <option value="وجبة رومانسية">وجبة رومانسية</option>
                         </select>
                     </div>
-                    
                     <div class="mb-4 p-4 bg-orange-50 rounded-lg border border-orange-200 dark:bg-gray-700 dark:border-orange-600">
-                        <h3 class="text-lg font-semibold text-orange-800 mb-3 text-center sm:text-right dark:text-orange-200">
-                            فلتر التفضيلات الغذائية:
-                        </h3>
+                        <h3 class="text-lg font-semibold text-orange-800 mb-3 text-center sm:text-right dark:text-orange-200">فلتر التفضيلات الغذائية:</h3>
                         <div class="flex flex-wrap justify-center items-center gap-x-4 gap-y-2">
-                             <label class="inline-flex items-center cursor-pointer">
-                                <input type="checkbox" name="dietary-preference" value="vegetarian" class="form-checkbox h-5 w-5 text-orange-600 rounded dark:text-orange-400">
-                                <span class="mr-2 text-gray-700 dark:text-gray-300">نباتي</span>
-                            </label>
-                            <label class="inline-flex items-center cursor-pointer">
-                                <input type="checkbox" name="dietary-preference" value="vegan" class="form-checkbox h-5 w-5 text-orange-600 rounded dark:text-orange-400">
-                                <span class="mr-2 text-gray-700 dark:text-gray-300">فيجن</span>
-                            </label>
-                            <label class="inline-flex items-center cursor-pointer">
-                                <input type="checkbox" name="dietary-preference" value="gluten-free" class="form-checkbox h-5 w-5 text-orange-600 rounded dark:text-orange-400">
-                                <span class="mr-2 text-gray-700 dark:text-gray-300">خالي من الغلوتين</span>
-                            </label>
+                             <label class="inline-flex items-center cursor-pointer"><input type="checkbox" name="dietary-preference" value="vegetarian" class="form-checkbox h-5 w-5 text-orange-600 rounded dark:text-orange-400"><span class="mr-2 text-gray-700 dark:text-gray-300">نباتي</span></label>
+                            <label class="inline-flex items-center cursor-pointer"><input type="checkbox" name="dietary-preference" value="vegan" class="form-checkbox h-5 w-5 text-orange-600 rounded dark:text-orange-400"><span class="mr-2 text-gray-700 dark:text-gray-300">فيجن</span></label>
+                            <label class="inline-flex items-center cursor-pointer"><input type="checkbox" name="dietary-preference" value="gluten-free" class="form-checkbox h-5 w-5 text-orange-600 rounded dark:text-orange-400"><span class="mr-2 text-gray-700 dark:text-gray-300">خالي من الغلوتين</span></label>
                         </div>
                     </div>
-
                     <div class="mt-6">
-                        <h3 class="text-xl font-semibold text-purple-700 mb-3 border-b pb-2 border-purple-200 dark:text-purple-400 dark:border-purple-600">
-                            ✨ اقتراح وجبة من مكوناتك
-                        </h3>
+                        <h3 class="text-xl font-semibold text-purple-700 mb-3 border-b pb-2 border-purple-200 dark:text-purple-400 dark:border-purple-600">✨ اقتراح وجبة من مكوناتك</h3>
                         <textarea id="user-ingredients" placeholder="أضف المكونات المتوفرة لديك (افصل بينها بفاصلة، مثال: طماطم، بصل، دجاج)" class="w-full p-3 mb-3 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 resize-y text-right bg-white dark:bg-gray-700 dark:text-gray-100 dark:border-purple-600" rows="3"></textarea>
-                        
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                            <button id="image-search-btn" data-icon="camera" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md flex items-center justify-center">
-                                <span class="icon-container w-5 h-5 ml-2"><i data-lucide="camera" class="w-5 h-5"></i></span>
-                                <span class="button-text text-sm sm:text-base">بحث بالصورة</span>
-                            </button>
+                            <button id="image-search-btn" data-icon="camera" class="btn-ripple w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 active:scale-90 shadow-md flex items-center justify-center"> <span class="icon-container w-5 h-5 ml-2"><i data-lucide="camera" class="w-5 h-5"></i></span> <span class="button-text text-sm sm:text-base">بحث بالصورة</span> </button>
                             <input type="file" id="image-upload" accept="image/*" class="hidden">
-                            
-                            <button id="suggest-from-ingredients-btn" data-icon="sparkles" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md flex items-center justify-center">
-                                <span class="icon-container w-5 h-5 ml-2"><i data-lucide="sparkles" class="w-5 h-5"></i></span>
-                                <span class="button-text text-sm sm:text-base">اقتراح من مكوناتي</span>
-                            </button>
+                            <button id="suggest-from-ingredients-btn" data-icon="sparkles" class="btn-ripple w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 active:scale-90 shadow-md flex items-center justify-center"> <span class="icon-container w-5 h-5 ml-2"><i data-lucide="sparkles" class="w-5 h-5"></i></span> <span class="button-text text-sm sm:text-base">اقتراح من مكوناتي</span> </button>
                         </div>
                     </div>
-
                     <div class="mt-6">
-                         <h3 class="text-xl font-semibold text-indigo-700 mb-3 border-b pb-2 border-indigo-200 dark:text-indigo-400 dark:border-indigo-600">
-                            ✨ اقتراح وجبة عشوائية
-                        </h3>
-                        <button id="suggest-general-btn" data-icon="sparkles" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md flex items-center justify-center mb-6">
-                            <span class="icon-container w-5 h-5 ml-2"><i data-lucide="sparkles" class="w-5 h-5"></i></span>
-                            <span class="button-text">اختر وجبة (بالذكاء الاصطناعي)</span>
-                        </button>
+                         <h3 class="text-xl font-semibold text-indigo-700 mb-3 border-b pb-2 border-indigo-200 dark:text-indigo-400 dark:border-indigo-600">✨ اقتراح وجبة عشوائية</h3>
+                        <button id="suggest-general-btn" data-icon="sparkles" class="btn-ripple w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 active:scale-90 shadow-md flex items-center justify-center mb-6"> <span class="icon-container w-5 h-5 ml-2"><i data-lucide="sparkles" class="w-5 h-5"></i></span> <span class="button-text">اختر وجبة (بالذكاء الاصطناعي)</span> </button>
                     </div>
-                    
                     <div id="suggested-meals-list" class="space-y-4 mb-6"></div>
-
                 </div>
-
                 <div class="mt-8">
-                    <h3 class="text-xl font-semibold text-green-700 mb-3 border-b pb-2 border-green-200 dark:text-green-400 dark:border-green-600">
-                        وجباتك المخطط لها:
-                    </h3>
+                    <h3 class="text-xl font-semibold text-green-700 mb-3 border-b pb-2 border-green-200 dark:text-green-400 dark:border-green-600">وجباتك المخطط لها:</h3>
                     <ul id="meal-plans-list" class="space-y-3">
                         <p id="no-meals-message" class="text-gray-600 text-center py-4 dark:text-gray-400">لم تقم بإضافة أي وجبات بعد.</p>
                     </ul>
                 </div>
             </section>
-
             <div class="flex flex-col gap-6">
                 <section class="bg-white p-4 sm:p-6 rounded-2xl shadow-xl border border-teal-200 dark:bg-gray-800 dark:border-teal-700">
-                    <h2 class="flex items-center text-2xl font-bold text-teal-800 mb-4 dark:text-teal-300">
-                        <i data-lucide="shopping-bag" class="w-7 h-7 ml-2 text-teal-600 dark:text-teal-400"></i>
-                        قائمة التسوق
-                    </h2>
+                    <h2 class="flex items-center text-2xl font-bold text-teal-800 mb-4 dark:text-teal-300"> <i data-lucide="shopping-bag" class="w-7 h-7 ml-2 text-teal-600 dark:text-teal-400"></i> قائمة التسوق </h2>
                     <div id="grocery-list" class="space-y-4">
                          <p id="no-groceries-message" class="text-gray-600 text-center py-4 dark:text-gray-400">قائمة التسوق فارغة. أضف وجبات لتعبئتها!</p>
                     </div>
-                    <button id="clear-grocery-btn" class="w-full mt-6 bg-teal-500 hover:bg-teal-600 text-white font-semibold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 shadow-md">
-                        مسح قائمة التسوق
-                    </button>
+                    <div class="flex flex-col gap-2 mt-6">
+                        <button id="clear-checked-groceries-btn" class="btn-ripple w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 active:scale-90 shadow-md flex items-center justify-center gap-2"> <i data-lucide="check-square" class="w-5 h-5 pointer-events-none"></i> <span class="pointer-events-none">حذف المشطوب</span> </button>
+                        <button id="clear-grocery-btn" class="btn-ripple w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 active:scale-90 shadow-md flex items-center justify-center gap-2"> <i data-lucide="trash-2" class="w-5 h-5 pointer-events-none"></i> <span class="pointer-events-none">مسح الكل</span> </button>
+                    </div>
                 </section>
-
                 <section class="bg-white p-4 sm:p-6 rounded-2xl shadow-xl border border-orange-200 dark:bg-gray-800 dark:border-orange-700">
                     <div id="nutrition-tips-header" class="relative">
-                         <h2 class="flex items-center text-2xl font-bold text-orange-800 mb-4 dark:text-orange-300">
-                            <i data-lucide="lightbulb" class="w-7 h-7 ml-2 text-orange-600 dark:text-orange-400"></i>
-                            نصائح غذائية
-                        </h2>
+                         <h2 class="flex items-center text-2xl font-bold text-orange-800 mb-4 dark:text-orange-300"> <i data-lucide="lightbulb" class="w-7 h-7 ml-2 text-orange-600 dark:text-orange-400"></i> نصائح غذائية </h2>
                     </div>
                     <div id="nutrition-tips-content" class="space-y-4"></div>
                 </section>
             </div>
         </main>
-
         <footer class="w-full max-w-4xl text-center mt-8 text-gray-600 text-sm dark:text-gray-400">
             <p>© <span id="year"></span> وصفتي. جميع الحقوق محفوظة </p>
         </footer>
@@ -249,12 +195,11 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // --- API URL ---
             const workerUrl = "https://workers-playground-autumn-pond-05c1.tito9py.workers.dev";
-
-            // --- LOCAL STORAGE & STATE MANAGEMENT ---
             let mealPlans = [];
             let suggestedMeals = []; 
+            let favorites = []; 
+            let shoppingList = []; 
             let isLoadingRecipe = false;
             let isAnalyzingIngredients = false;
             let isAnalyzingImage = false;
@@ -263,17 +208,13 @@
             let dietaryPreferences = [];
             let usageCount = 0;
             let countdownInterval = null;
-            
-            // --- ANALYSIS STATE MANAGEMENT ---
             let analysisHistory = []; 
             let currentAnalysisIndex = -1;
-
-            // --- CONSTANTS ---
             const MAX_MEAL_PLANS = 10;
             const MAX_DAILY_REQUESTS = 10;
             const MAX_ANALYSIS_HISTORY = 10;
             
-            // --- DOM ELEMENT REFERENCES ---
+            // --- DOM Elements ---
             const userIngredientsInput = document.getElementById('user-ingredients');
             const suggestFromIngredientsBtn = document.getElementById('suggest-from-ingredients-btn');
             const suggestGeneralBtn = document.getElementById('suggest-general-btn');
@@ -288,13 +229,27 @@
             const mealTypeSelect = document.getElementById('meal-type');
             const themeToggleBtn = document.getElementById('theme-toggle');
             const htmlElement = document.documentElement;
-            const themeIconElement = themeToggleBtn.querySelector('.theme-icon');
             const dietaryPreferenceCheckboxes = document.querySelectorAll('input[name="dietary-preference"]');
             const mealPlanCountElement = document.getElementById('meal-plan-count');
             const apiUsageInfoElement = document.getElementById('api-usage-info');
             const imageUploadInput = document.getElementById('image-upload');
             const imageSearchBtn = document.getElementById('image-search-btn');
             const resetTimerElement = document.getElementById('reset-timer');
+            // const shareGroceryBtn = document.getElementById('share-grocery-btn'); // Removed
+            const clearCheckedGroceriesBtn = document.getElementById('clear-checked-groceries-btn'); 
+            const favoritesModal = document.getElementById('favorites-modal');
+            const openFavoritesBtn = document.getElementById('open-favorites-btn');
+            const closeFavoritesBtn = document.getElementById('close-favorites-btn');
+            const favoritesList = document.getElementById('favorites-list');
+            const noFavoritesMessage = document.getElementById('no-favorites-message');
+            const ratingNotesModal = document.getElementById('rating-notes-modal');
+            const closeRatingModalBtn = document.getElementById('close-rating-modal-btn');
+            const ratingModalTitle = document.getElementById('rating-modal-title');
+            const ratingStarsContainer = document.getElementById('rating-stars');
+            const mealNotesInput = document.getElementById('meal-notes');
+            const ratingMealIdInput = document.getElementById('rating-meal-id');
+            const saveRatingNotesBtn = document.getElementById('save-rating-notes-btn');
+            let currentRating = 0; 
 
             document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -320,14 +275,27 @@
                     mealPlans.forEach(meal => {
                         const li = document.createElement('li');
                         li.className = "bg-green-50 p-4 rounded-lg shadow-sm flex flex-col items-start border border-green-100 dark:bg-gray-700 dark:border-green-600";
+                        
+                        let ratingHTML = '<div class="flex text-gray-300 dark:text-gray-500">';
+                        for(let i = 1; i <= 5; i++) {
+                            ratingHTML += `<i data-lucide="star" class="w-4 h-4 mr-1 ${i <= (meal.rating || 0) ? 'text-yellow-400 fill-current' : ''}"></i>`;
+                        }
+                        ratingHTML += '</div>';
+
                         li.innerHTML = `
                             <div class="flex justify-between items-center w-full mb-2">
-                                <strong class="text-green-800 block text-lg dark:text-green-300">${meal.recipeName}</strong>
+                                <div class="flex flex-col items-start">
+                                    <strong class="text-green-800 block text-lg dark:text-green-300 mb-1">${meal.recipeName}</strong>
+                                    ${ratingHTML} 
+                                </div>
                                 <div class="flex items-center">
-                                    <button data-id="${meal.id}" data-icon="brain-circuit" class="analyze-planned-btn text-blue-500 hover:text-blue-700 transition duration-200 mr-2" title="تحليل الوجبة">
+                                     <button data-id="${meal.id}" class="btn-ripple open-rating-notes-btn text-yellow-500 hover:text-yellow-600 transition duration-200 transform hover:scale-110 active:scale-90 rounded-full p-1 mr-2" title="تقييم وملاحظات">
+                                        <i data-lucide="notebook-pen" class="w-6 h-6 pointer-events-none"></i>
+                                    </button>
+                                    <button data-id="${meal.id}" data-icon="brain-circuit" class="btn-ripple analyze-planned-btn text-blue-500 hover:text-blue-700 transition duration-200 transform hover:scale-110 active:scale-90 rounded-full p-1 mr-2" title="تحليل الوجبة">
                                         <i data-lucide="brain-circuit" class="w-6 h-6 pointer-events-none"></i>
                                     </button>
-                                    <button data-id="${meal.id}" class="delete-meal-btn text-red-500 hover:text-red-700 transition duration-200" title="حذف الوجبة">
+                                    <button data-id="${meal.id}" class="btn-ripple delete-meal-btn text-red-500 hover:text-red-700 transition duration-200 transform hover:scale-110 active:scale-90 rounded-full p-1" title="حذف الوجبة">
                                         <i data-lucide="x-circle" class="w-6 h-6 pointer-events-none"></i>
                                     </button>
                                 </div>
@@ -341,153 +309,174 @@
                             </div>
                             ${meal.youtubeSearchQuery ? `
                             <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(meal.youtubeSearchQuery)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center text-red-600 hover:text-red-800 transition duration-200 font-semibold text-sm mt-1" title="شاهد فيديو التحضير على يوتيوب">
-                                <i data-lucide="youtube" class="w-5 h-5 ml-2"></i>
-                                شاهد طريقة التحضير على يوتيوب
+                                <i data-lucide="youtube" class="w-5 h-5 ml-2"></i> شاهد طريقة التحضير على يوتيوب
                             </a>` : ''}
+                            ${meal.notes ? `<div class="mt-2 text-sm text-gray-600 dark:text-gray-400 border-t pt-2 w-full dark:border-gray-600"><span class="font-semibold">ملاحظاتك:</span> ${meal.notes.replace(/\n/g, '<br>')}</div>` : ''} 
                         `;
                         mealPlansList.appendChild(li);
                     });
                 }
-                renderGroceryList();
+                renderGroceryList(); 
                 lucide.createIcons();
             };
 
             const renderGroceryList = () => {
                 groceryList.innerHTML = '';
-                if (mealPlans.length === 0) {
+                let hasCheckedItems = false;
+                let hasItems = false; // Flag to check if there are any items at all
+
+                if (shoppingList.length === 0) {
                     groceryList.appendChild(noGroceriesMessage);
                     noGroceriesMessage.classList.remove('hidden');
                 } else {
+                    hasItems = true; // Set flag if list is not empty
                     noGroceriesMessage.classList.add('hidden');
-                    mealPlans.forEach((meal) => {
-                        const mealContainer = document.createElement('div');
-                        mealContainer.className = "bg-teal-50 p-4 rounded-lg border border-teal-100 dark:bg-gray-700 dark:border-teal-600";
-                        const mealHeader = document.createElement('div');
-                        mealHeader.className = "flex justify-between items-center w-full mb-2";
-                        mealHeader.innerHTML = `
-                            <h4 class="text-lg font-semibold text-teal-800 dark:text-teal-300">${meal.recipeName}</h4>
-                            <button data-id="${meal.id}" class="delete-meal-btn text-red-500 hover:text-red-700 transition duration-200" title="حذف الوجبة من القائمة">
-                                <i data-lucide="x-circle" class="w-6 h-6 pointer-events-none"></i>
-                            </button>`;
-                        mealContainer.appendChild(mealHeader);
+                    
+                    const groupedList = shoppingList.reduce((acc, item) => {
+                        const mealKey = item.mealName || 'مكونات عامة';
+                        (acc[mealKey] = acc[mealKey] || []).push(item);
+                        return acc;
+                    }, {});
 
+                    for (const mealName in groupedList) {
+                        const items = groupedList[mealName];
+                        const mealContainer = document.createElement('div');
+                        mealContainer.className = "bg-teal-50 p-4 rounded-lg border border-teal-100 dark:bg-gray-700 dark:border-teal-600 mb-4"; 
+                        
+                        // --- [ بداية تعديل ] إضافة زر المشاركة الفردي ---
+                        const mealId = items[0]?.mealId; // Get mealId from the first item
+                        mealContainer.innerHTML = `
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="text-lg font-semibold text-teal-800 dark:text-teal-300">${mealName}</h4>
+                                ${mealId ? // Only show share if it's tied to a specific meal
+                                `<button data-id="${mealId}" data-meal-name="${mealName}" class="btn-ripple share-meal-groceries-btn text-teal-600 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-200 p-1 rounded-full transform active:scale-90" title="مشاركة مكونات هذه الوجبة">
+                                    <i data-lucide="share-2" class="w-5 h-5 pointer-events-none"></i>
+                                </button>` 
+                                : ''}
+                            </div>`;
+                        // --- [ نهاية تعديل ] ---
+                        
                         const ingredientsList = document.createElement('ul');
-                        ingredientsList.className = "list-disc list-inside space-y-1 pr-4 text-gray-700 dark:text-gray-300";
-                        meal.ingredients.forEach(item => {
+                        ingredientsList.className = "space-y-2";
+
+                        items.forEach(item => {
+                            if (item.isChecked) hasCheckedItems = true;
+
                             const li = document.createElement('li');
-                            li.textContent = item;
+                            li.className = 'grocery-item';
+                            li.innerHTML = `
+                                <label class="grocery-item-label flex items-center cursor-pointer ${item.isChecked ? 'checked' : ''}">
+                                    <input type="checkbox" data-id="${item.id}" class="form-checkbox h-5 w-5 text-teal-600 rounded ml-3" ${item.isChecked ? 'checked' : ''}>
+                                    <span class="text-gray-700 dark:text-gray-300">${item.ingredient}</span>
+                                </label>
+                            `;
                             ingredientsList.appendChild(li);
                         });
+                        
                         mealContainer.appendChild(ingredientsList);
                         groceryList.appendChild(mealContainer);
-                    });
+                    }
+                    
                 }
+                // Disable buttons based on state
+                // shareGroceryBtn.disabled = !hasItems; // Removed global share button
+                clearCheckedGroceriesBtn.disabled = !hasCheckedItems;
+                clearGroceryBtn.disabled = !hasItems; // Disable clear all if list is empty
+
+                lucide.createIcons(); // Render icons for share buttons
             };
 
-            const renderSuggestedMeals = () => {
+
+            const renderSuggestedMeals = () => { 
                 suggestedMealsList.innerHTML = '';
                 if (suggestedMeals.length > 0) {
                     suggestedMeals.forEach(meal => {
                         const mealCard = document.createElement('div');
                         mealCard.className = "bg-purple-50 p-4 rounded-lg shadow-md border border-purple-200 dark:bg-gray-700 dark:border-purple-600";
+                        const isFavorited = favorites.some(fav => fav.id === meal.id); 
                         mealCard.innerHTML = `
-                            <h4 class="text-xl font-semibold text-purple-800 mb-2 dark:text-purple-300">${meal.recipeName}</h4>
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="text-xl font-semibold text-purple-800 dark:text-purple-300">${meal.recipeName}</h4>
+                                <button data-id="${meal.id}" class="btn-ripple add-to-favorites-btn p-2 rounded-full transition-colors duration-200 transform hover:scale-110 active:scale-90 ${isFavorited ? 'text-red-500 bg-red-100' : 'text-gray-500 hover:text-red-500'}" title="إضافة للمفضلة">
+                                    <i data-lucide="heart" class="w-6 h-6 pointer-events-none ${isFavorited ? 'fill-current' : ''}"></i>
+                                </button>
+                            </div>
                             <p class="text-gray-700 text-sm mb-2 dark:text-gray-300"><span class="font-semibold">المكونات:</span> ${meal.ingredients.join('، ')}</p>
                             <p class="text-gray-700 text-sm mb-2 dark:text-gray-300"><span class="font-semibold">طريقة التحضير:</span> ${meal.preparation}</p>
-                            ${meal.youtubeSearchQuery ? `<a href="https://www.youtube.com/results?search_query=${encodeURIComponent(meal.youtubeSearchQuery)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center text-red-600 hover:text-red-800 transition duration-200 font-semibold text-sm mt-1 dark:text-red-400" title="شاهد فيديو التحضير على يوتيوب"><i data-lucide="youtube" class="w-5 h-5 ml-2"></i> شاهد طريقة التحضير</a>` : ''}
+                            ${meal.youtubeSearchQuery ? `<a href="https://www.youtube.com/results?search_query=${encodeURIComponent(meal.youtubeSearchQuery)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center text-red-600 hover:text-red-800 transition duration-200 font-semibold text-sm mt-1 dark:text-red-400" title="شاهد فيديو التحضير على يوتيوب"><i data-lucide="youtube" class="w-5 h-5 ml-2"></i> شاهد طريقة التحضير على يوتيوب</a>` : ''}
                             <div class="flex flex-col sm:flex-row gap-2 mt-4">
-                                <button data-id="${meal.id}" class="add-suggested-btn w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition transform hover:scale-105 shadow-md flex items-center justify-center"><i data-lucide="plus-circle" class="w-5 h-5 ml-2 pointer-events-none"></i> إضافة للخطط</button>
-                                <button data-id="${meal.id}" data-icon="brain-circuit" class="analyze-suggested-btn w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition transform hover:scale-105 shadow-md flex items-center justify-center" title="تحليل الوجبة"><i data-lucide="brain-circuit" class="w-5 h-5 pointer-events-none"></i></button>
-                                <button data-id="${meal.id}" class="clear-suggested-btn w-full sm:w-auto bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg transition transform hover:scale-105 shadow-md flex items-center justify-center"><i data-lucide="x-circle" class="w-5 h-5 pointer-events-none"></i></button>
+                                <button data-id="${meal.id}" class="btn-ripple add-suggested-btn w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition transform hover:scale-105 active:scale-90 shadow-md flex items-center justify-center"><i data-lucide="plus-circle" class="w-5 h-5 ml-2 pointer-events-none"></i> إضافة للخطط</button>
+                                <button data-id="${meal.id}" data-icon="brain-circuit" class="btn-ripple analyze-suggested-btn w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition transform hover:scale-105 active:scale-90 shadow-md flex items-center justify-center" title="تحليل الوجبة"><i data-lucide="brain-circuit" class="w-5 h-5 pointer-events-none"></i></button>
+                                <button data-id="${meal.id}" class="btn-ripple clear-suggested-btn w-full sm:w-auto bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 px-4 rounded-lg transition transform hover:scale-105 active:scale-90 shadow-md flex items-center justify-center"><i data-lucide="x-circle" class="w-5 h-5 pointer-events-none"></i></button>
                             </div>`;
                         suggestedMealsList.appendChild(mealCard);
                     });
                 }
                 lucide.createIcons();
-            };
-            
-            const renderAnalysisView = () => {
-                if (tipsInterval) clearInterval(tipsInterval);
-
-                if (analysisHistory.length === 0 || currentAnalysisIndex < 0) {
-                    renderStaticTips();
-                    return;
+            }
+            const renderFavorites = () => { 
+                favoritesList.innerHTML = '';
+                if (favorites.length === 0) {
+                    favoritesList.appendChild(noFavoritesMessage);
+                    noFavoritesMessage.classList.remove('hidden');
+                } else {
+                    noFavoritesMessage.classList.add('hidden');
+                    favorites.forEach(meal => {
+                        const favCard = document.createElement('div');
+                        favCard.className = "bg-gray-50 dark:bg-gray-700 p-4 rounded-lg shadow-sm border dark:border-gray-600";
+                        favCard.innerHTML = `
+                            <div class="flex justify-between items-center mb-2">
+                                <strong class="text-lg text-purple-800 dark:text-purple-300">${meal.recipeName}</strong>
+                                <button data-id="${meal.id}" class="btn-ripple remove-from-favorites-btn text-red-500 hover:text-red-700 p-1 rounded-full transform active:scale-90" title="إزالة من المفضلة">
+                                    <i data-lucide="trash-2" class="w-5 h-5 pointer-events-none"></i>
+                                </button>
+                            </div>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mb-3"><span class="font-semibold">المكونات:</span> ${meal.ingredients.join('، ')}</p>
+                            <button data-id="${meal.id}" class="btn-ripple add-fav-to-plan-btn w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition transform hover:scale-105 active:scale-90 flex items-center justify-center gap-2">
+                                <i data-lucide="plus-circle" class="w-5 h-5 pointer-events-none"></i>
+                                <span>إضافة للخطط</span>
+                            </button>
+                        `;
+                        favoritesList.appendChild(favCard);
+                    });
                 }
-                
+                lucide.createIcons();
+            }
+            const renderAnalysisView = () => { 
+                if (tipsInterval) clearInterval(tipsInterval);
+                if (analysisHistory.length === 0 || currentAnalysisIndex < 0) { renderStaticTips(); return; }
                 const currentAnalysis = analysisHistory[currentAnalysisIndex];
                 const titleText = `تحليل وجبة: ${currentAnalysis.mealName}`;
-                
-                const navButtonsHTML = `
-                    <div class="flex items-center gap-2">
-                        <button id="prev-analysis-btn" class="p-1 text-gray-500 hover:text-blue-500 transition-colors duration-200 rounded-full" title="التحليل السابق" ${currentAnalysisIndex === 0 ? 'disabled' : ''}>
-                            <i data-lucide="arrow-right-circle" class="w-6 h-6"></i>
-                        </button>
-                        <span class="font-semibold text-gray-600 dark:text-gray-400 text-sm">${currentAnalysisIndex + 1} / ${analysisHistory.length}</span>
-                        <button id="next-analysis-btn" class="p-1 text-gray-500 hover:text-blue-500 transition-colors duration-200 rounded-full" title="التحليل التالي" ${currentAnalysisIndex === analysisHistory.length - 1 ? 'disabled' : ''}>
-                            <i data-lucide="arrow-left-circle" class="w-6 h-6"></i>
-                        </button>
-                    </div>`;
-
-                nutritionTipsHeader.innerHTML = `
-                    <div class="flex justify-between items-center w-full mb-2">
-                        <div class="flex items-center">
-                            <i data-lucide="sliders-horizontal" class="w-7 h-7 ml-2 text-blue-600 dark:text-blue-400"></i>
-                            <h2 class="text-xl font-bold text-blue-800 dark:text-blue-300">${titleText}</h2>
-                        </div>
-                        <button id="clear-analysis-btn" class="p-1 text-gray-500 hover:text-red-500 transition-colors duration-200 rounded-full" title="مسح التحليل الحالي">
-                            <i data-lucide="x" class="w-6 h-6"></i>
-                        </button>
-                    </div>
-                    ${navButtonsHTML}
-                    `;
-
-                const formattedText = currentAnalysis.text.split('\n').map(line => {
-                    if (line.trim().startsWith('*')) {
-                        return `<li class="flex items-start"><span class="ml-2 text-blue-500">•</span>${line.substring(1).trim()}</li>`;
-                    }
-                    return `<p>${line.trim()}</p>`;
-                }).join('');
+                const navButtonsHTML = `<div class="flex items-center gap-2"><button id="prev-analysis-btn" class="btn-ripple p-1 text-gray-500 hover:text-blue-500 transition-all duration-200 transform hover:scale-110 active:scale-90 rounded-full" title="التحليل السابق" ${currentAnalysisIndex === 0 ? 'disabled' : ''}><i data-lucide="arrow-right-circle" class="w-6 h-6 pointer-events-none"></i></button><span class="font-semibold text-gray-600 dark:text-gray-400 text-sm">${currentAnalysisIndex + 1} / ${analysisHistory.length}</span><button id="next-analysis-btn" class="btn-ripple p-1 text-gray-500 hover:text-blue-500 transition-all duration-200 transform hover:scale-110 active:scale-90 rounded-full" title="التحليل التالي" ${currentAnalysisIndex === analysisHistory.length - 1 ? 'disabled' : ''}><i data-lucide="arrow-left-circle" class="w-6 h-6 pointer-events-none"></i></button></div>`;
+                nutritionTipsHeader.innerHTML = `<div class="flex justify-between items-center w-full mb-2"><div class="flex items-center"><i data-lucide="sliders-horizontal" class="w-7 h-7 ml-2 text-blue-600 dark:text-blue-400"></i><h2 class="text-xl font-bold text-blue-800 dark:text-blue-300">${titleText}</h2></div><button id="clear-analysis-btn" class="btn-ripple p-1 text-gray-500 hover:text-red-500 transition-all duration-200 transform hover:scale-110 active:scale-90 rounded-full" title="مسح التحليل الحالي"><i data-lucide="x" class="w-6 h-6 pointer-events-none"></i></button></div>${navButtonsHTML}`;
+                const formattedText = currentAnalysis.text.split('\n').map(line => line.trim().startsWith('*') ? `<li class="flex items-start"><span class="ml-2 text-blue-500">•</span>${line.substring(1).trim()}</li>` : `<p>${line.trim()}</p>`).join('');
                 nutritionTipsContent.innerHTML = `<div class="prose max-w-none text-gray-700 dark:text-gray-300"><ul class="space-y-2">${formattedText}</ul></div>`;
-                
                 lucide.createIcons();
-            };
-
-            const renderStaticTips = () => {
+            }
+            const renderStaticTips = () => { 
                 if (tipsInterval) clearInterval(tipsInterval);
-                nutritionTipsHeader.innerHTML = `
-                    <h2 class="flex items-center text-2xl font-bold text-orange-800 mb-4 dark:text-orange-300">
-                        <i data-lucide="lightbulb" class="w-7 h-7 ml-2 text-orange-600 dark:text-orange-400"></i>
-                        نصائح غذائية
-                    </h2>`;
+                nutritionTipsHeader.innerHTML = `<h2 class="flex items-center text-2xl font-bold text-orange-800 mb-4 dark:text-orange-300"><i data-lucide="lightbulb" class="w-7 h-7 ml-2 text-orange-600 dark:text-orange-400"></i> نصائح غذائية</h2>`;
                 const displayTip = () => {
                     const tip = staticNutritionTips[currentTipIndex];
-                    nutritionTipsContent.innerHTML = `
-                        <div class="bg-orange-50 p-4 rounded-lg shadow-sm flex items-start border border-orange-100 dynamic-tip-enter dark:bg-gray-700 dark:border-orange-600">
-                            <span class="w-3 h-3 bg-orange-500 rounded-full mt-1.5 ml-3 flex-shrink-0"></span>
-                            <p class="text-gray-700 dark:text-gray-300">${tip}</p>
-                        </div>`;
-                    setTimeout(() => {
-                        const newTipElement = nutritionTipsContent.querySelector('.dynamic-tip-enter');
-                        if (newTipElement) newTipElement.classList.add('dynamic-tip-enter-active');
-                    }, 10);
+                    nutritionTipsContent.innerHTML = `<div class="bg-orange-50 p-4 rounded-lg shadow-sm flex items-start border border-orange-100 dynamic-tip-enter dark:bg-gray-700 dark:border-orange-600"><span class="w-3 h-3 bg-orange-500 rounded-full mt-1.5 ml-3 flex-shrink-0"></span><p class="text-gray-700 dark:text-gray-300">${tip}</p></div>`;
+                    setTimeout(() => { const el = nutritionTipsContent.querySelector('.dynamic-tip-enter'); if(el) el.classList.add('dynamic-tip-enter-active'); }, 10);
                     currentTipIndex = (currentTipIndex + 1) % staticNutritionTips.length;
                 };
                 displayTip();
                 tipsInterval = setInterval(displayTip, 5000);
                 lucide.createIcons();
-            };
+            }
             
             // --- HELPER FUNCTIONS ---
-            const showCustomNotification = (message) => {
-                const notification = document.getElementById('notification');
-                const notificationMessage = document.getElementById('notification-message');
-                if (!notification || !notificationMessage) return;
-                notificationMessage.textContent = message;
-                notification.classList.remove('hidden');
-                setTimeout(() => { notification.classList.add('hidden'); }, 3000);
-            };
-
-            const toggleLoading = (button, isLoading, originalText, iconName) => {
+            const showCustomNotification = (message) => { 
+                const el = document.getElementById('notification');
+                const msgEl = document.getElementById('notification-message');
+                if (!el || !msgEl) return;
+                msgEl.textContent = message;
+                el.classList.remove('hidden');
+                setTimeout(() => { el.classList.add('hidden'); }, 3000);
+            }
+            const toggleLoading = (button, isLoading, originalText, iconName) => { 
                 const iconContainer = button.querySelector('.icon-container');
                 const textSpan = button.querySelector('.button-text');
                 if (!iconContainer || !textSpan) return;
@@ -502,9 +491,8 @@
                     lucide.createIcons();
                     textSpan.textContent = originalText;
                 }
-            };
-            
-            const toggleIconLoading = (button, isLoading) => {
+            }
+            const toggleIconLoading = (button, isLoading) => { 
                 if (isLoading) {
                     button.disabled = true;
                     button.innerHTML = `<svg class="animate-spin h-6 w-6" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A8 8 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
@@ -514,29 +502,38 @@
                     button.innerHTML = `<i data-lucide="${icon}" class="w-6 h-6 pointer-events-none"></i>`;
                     lucide.createIcons();
                 }
-            };
-            
-            const toggleDarkMode = () => {
-                if (htmlElement.classList.contains('dark')) {
-                    htmlElement.classList.remove('dark');
-                    localStorage.setItem('theme', 'light');
-                    themeIconElement.setAttribute('data-lucide', 'moon');
-                } else {
-                    htmlElement.classList.add('dark');
-                    localStorage.setItem('theme', 'dark');
-                    themeIconElement.setAttribute('data-lucide', 'sun');
-                }
-                lucide.createIcons();
-            };
-            
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme === 'dark') {
-                htmlElement.classList.add('dark');
-                themeIconElement.setAttribute('data-lucide', 'sun');
-            } else {
-                themeIconElement.setAttribute('data-lucide', 'moon');
             }
-            lucide.createIcons();
+            const toggleDarkMode = () => { 
+                 themeToggleBtn.classList.add('rotate-icon');
+                themeToggleBtn.addEventListener('animationend', () => themeToggleBtn.classList.remove('rotate-icon'), { once: true });
+                const currentIcon = themeToggleBtn.querySelector('.theme-icon');
+                if (currentIcon) currentIcon.remove();
+                let newIconName = htmlElement.classList.contains('dark') ? 'moon' : 'sun';
+                if (htmlElement.classList.contains('dark')) { htmlElement.classList.remove('dark'); localStorage.setItem('theme', 'light'); } 
+                else { htmlElement.classList.add('dark'); localStorage.setItem('theme', 'dark'); }
+                const newIconElement = document.createElement('i');
+                newIconElement.setAttribute('data-lucide', newIconName);
+                newIconElement.className = 'w-6 h-6 theme-icon';
+                themeToggleBtn.appendChild(newIconElement);
+                lucide.createIcons();
+            }
+            const createRipple = (event) => { 
+                const button = event.target.closest('button');
+                if (!button || button.disabled) return;
+                button.classList.add('btn-ripple');
+                const oldRipple = button.querySelector(".ripple");
+                if (oldRipple) oldRipple.remove();
+                const circle = document.createElement("span");
+                const diameter = Math.max(button.clientWidth, button.clientHeight);
+                const radius = diameter / 2;
+                circle.style.width = circle.style.height = `${diameter}px`;
+                const rect = button.getBoundingClientRect();
+                circle.style.left = `${event.clientX - rect.left - radius}px`;
+                circle.style.top = `${event.clientY - rect.top - radius}px`;
+                circle.classList.add("ripple");
+                button.appendChild(circle);
+                setTimeout(() => circle.remove(), 600);
+            }
 
             // --- LOCAL STORAGE & USAGE DATA MANAGEMENT ---
             const loadUserDataFromLocalStorage = () => {
@@ -547,293 +544,296 @@
                         mealPlans = data.mealPlans || [];
                         suggestedMeals = data.suggestedMeals || [];
                         dietaryPreferences = data.dietaryPreferences || [];
+                        favorites = data.favorites || []; 
+                        shoppingList = data.shoppingList || []; 
                         renderMealPlans();
                         renderSuggestedMeals();
                         dietaryPreferenceCheckboxes.forEach(cb => { cb.checked = dietaryPreferences.includes(cb.value); });
-                        showCustomNotification("تم تحميل بياناتك المحفوظة!");
+                        // Don't show notification on initial load
                     }
                 } catch (e) { console.error("Failed to load user data:", e); }
             };
-
             const saveUserDataToLocalStorage = () => {
-                try {
-                    localStorage.setItem('userData', JSON.stringify({ mealPlans, suggestedMeals, dietaryPreferences }));
-                } catch (e) { console.error("Failed to save user data:", e); }
+                try { localStorage.setItem('userData', JSON.stringify({ mealPlans, suggestedMeals, dietaryPreferences, favorites, shoppingList })); } 
+                catch (e) { console.error("Failed to save user data:", e); }
             };
-            
             const getTodayDateString = () => new Date().toISOString().split('T')[0];
-
-            const loadUsageDataFromLocalStorage = () => {
+            const loadUsageDataFromLocalStorage = () => { 
                 const savedUsage = localStorage.getItem('apiUsage');
-                if (savedUsage) {
-                    const data = JSON.parse(savedUsage);
-                    usageCount = data.date === getTodayDateString() ? data.count : 0;
-                }
+                if (savedUsage) { const data = JSON.parse(savedUsage); usageCount = data.date === getTodayDateString() ? data.count : 0; }
                 renderUsageCount();
-            };
-
-            const saveUsageDataToLocalStorage = () => {
-                localStorage.setItem('apiUsage', JSON.stringify({ count: usageCount, date: getTodayDateString() }));
-            };
-
-            const checkAndIncrementUsage = () => {
-                if (usageCount >= MAX_DAILY_REQUESTS) {
-                    showCustomNotification(`لقد وصلت للحد الأقصى للطلبات اليومية.`);
-                    renderUsageCount();
-                    return false;
-                }
-                usageCount++;
-                saveUsageDataToLocalStorage();
-                renderUsageCount();
-                return true;
-            };
-
-            const startCountdown = () => {
+            }
+            const saveUsageDataToLocalStorage = () => { localStorage.setItem('apiUsage', JSON.stringify({ count: usageCount, date: getTodayDateString() })); }
+            const checkAndIncrementUsage = () => { 
+                if (usageCount >= MAX_DAILY_REQUESTS) { showCustomNotification(`لقد وصلت للحد الأقصى للطلبات اليومية.`); renderUsageCount(); return false; }
+                usageCount++; saveUsageDataToLocalStorage(); renderUsageCount(); return true;
+            }
+            const startCountdown = () => { 
                 if (countdownInterval) clearInterval(countdownInterval);
                 const updateTimer = () => {
-                    const now = new Date();
-                    const resetTime = new Date(now).setHours(24, 0, 0, 0);
-                    const distance = resetTime - now;
-                    if (distance < 0) {
-                        clearInterval(countdownInterval);
-                        loadUsageDataFromLocalStorage();
-                        return;
-                    }
+                    const now = new Date(); const resetTime = new Date(now).setHours(24, 0, 0, 0); const distance = resetTime - now;
+                    if (distance < 0) { clearInterval(countdownInterval); loadUsageDataFromLocalStorage(); return; }
                     const h = Math.floor(distance / 36e5), m = Math.floor(distance % 36e5 / 6e4), s = Math.floor(distance % 6e4 / 1e3);
                     resetTimerElement.textContent = `محاولات جديدة بعد: ${h}س ${m}د ${s}ث`;
-                };
-                updateTimer();
-                countdownInterval = setInterval(updateTimer, 1000);
-            };
-
-            const renderUsageCount = () => {
-                if (usageCount >= MAX_DAILY_REQUESTS) {
-                    apiUsageInfoElement.classList.add('hidden');
-                    resetTimerElement.classList.remove('hidden');
-                    startCountdown();
-                } else {
-                    if (countdownInterval) clearInterval(countdownInterval);
-                    apiUsageInfoElement.classList.remove('hidden');
-                    resetTimerElement.classList.add('hidden');
-                    apiUsageInfoElement.textContent = `الطلبات المتبقية: ${MAX_DAILY_REQUESTS - usageCount}`;
-                }
-            };
+                }; updateTimer(); countdownInterval = setInterval(updateTimer, 1000);
+            }
+            const renderUsageCount = () => { 
+                 if (usageCount >= MAX_DAILY_REQUESTS) { apiUsageInfoElement.classList.add('hidden'); resetTimerElement.classList.remove('hidden'); startCountdown(); } 
+                 else { if (countdownInterval) clearInterval(countdownInterval); apiUsageInfoElement.classList.remove('hidden'); resetTimerElement.classList.add('hidden'); apiUsageInfoElement.textContent = `الطلبات المتبقية: ${MAX_DAILY_REQUESTS - usageCount}`; }
+            }
 
             // --- CORE LOGIC FUNCTIONS ---
+            const addMealToPlan = (mealToAdd) => {
+                if (mealPlans.length >= MAX_MEAL_PLANS) { showCustomNotification(`الحد الأقصى للوجبات هو ${MAX_MEAL_PLANS}.`); return false; }
+                const newPlannedMeal = { ...mealToAdd, rating: mealToAdd.rating || 0, notes: mealToAdd.notes || '' };
+                let itemCounter = 0;
+                newPlannedMeal.ingredients.forEach(item => {
+                    const newItem = { id: Date.now() + (itemCounter++), mealId: newPlannedMeal.id, mealName: newPlannedMeal.recipeName, ingredient: item.trim(), isChecked: false };
+                    shoppingList.push(newItem);
+                });
+                mealPlans.push(newPlannedMeal); 
+                return true;
+            };
             const addSuggestedMealToPlan = (id) => {
                 const mealToAdd = suggestedMeals.find(m => m.id === id);
-                if (mealToAdd) {
-                    if (mealPlans.length >= MAX_MEAL_PLANS) {
-                        showCustomNotification(`الحد الأقصى للوجبات هو ${MAX_MEAL_PLANS}.`);
-                        return;
-                    }
-                    mealPlans.push({ ...mealToAdd });
+                if (mealToAdd && addMealToPlan(mealToAdd)) {
                     suggestedMeals = suggestedMeals.filter(m => m.id !== id);
-                    renderMealPlans();
-                    renderSuggestedMeals();
-                    saveUserDataToLocalStorage();
+                    renderMealPlans(); renderSuggestedMeals(); saveUserDataToLocalStorage();
                 }
             };
-
-            const clearSuggestedMeal = (id) => {
-                suggestedMeals = suggestedMeals.filter(m => m.id !== id);
-                renderSuggestedMeals();
-                saveUserDataToLocalStorage();
-            };
-            
-            const deleteMealPlan = (id) => {
+            const clearSuggestedMeal = (id) => { 
+                suggestedMeals = suggestedMeals.filter(m => m.id !== id); renderSuggestedMeals(); saveUserDataToLocalStorage();
+            }
+            const deleteMealPlan = (id) => { 
                 mealPlans = mealPlans.filter(m => m.id !== id);
-                renderMealPlans();
-                saveUserDataToLocalStorage();
-            };
-            
-            // --- API CALLS ---
-            const callGeminiAPI = async (payload) => {
-                try {
-                    const response = await fetch(workerUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    return await response.json();
-                } catch (error) {
-                    showCustomNotification("خطأ في الاتصال بالذكاء الاصطناعي.");
-                    return null;
-                }
-            };
-
-            const generateRecipe = async (isGeneral) => {
-                if (isLoadingRecipe || isAnalyzingIngredients || isAnalyzingImage) return;
-                const ingredients = userIngredientsInput.value.trim();
-                if (!isGeneral && !ingredients) {
-                    showCustomNotification("الرجاء إدخال المكونات أولاً.");
+                shoppingList = shoppingList.filter(item => item.mealId !== id);
+                renderMealPlans(); saveUserDataToLocalStorage();
+            }
+            const toggleFavorite = (id) => { 
+                 const meal = suggestedMeals.find(m => m.id === id) || favorites.find(m => m.id === id); if (!meal) return;
+                const index = favorites.findIndex(fav => fav.id === id);
+                if (index > -1) { favorites.splice(index, 1); showCustomNotification("تمت الإزالة من المفضلة."); } 
+                else { favorites.push({ ...meal, rating: meal.rating || 0, notes: meal.notes || '' }); showCustomNotification("تمت الإضافة للمفضلة!"); }
+                saveUserDataToLocalStorage(); renderSuggestedMeals(); renderFavorites(); 
+            }
+            const addFavoriteToPlan = (id) => { 
+                 const mealToAdd = favorites.find(m => m.id === id);
+                if (mealPlans.some(m => m.id === id)) { showCustomNotification("هذه الوجبة موجودة في خططك بالفعل."); return; }
+                if (mealToAdd && addMealToPlan(mealToAdd)) { renderMealPlans(); saveUserDataToLocalStorage(); showCustomNotification(`تمت إضافة "${mealToAdd.recipeName}" للخطط!`); favoritesModal.classList.add('hidden'); }
+            }
+            const removeFavorite = (id) => { 
+                favorites = favorites.filter(m => m.id !== id); saveUserDataToLocalStorage(); renderFavorites(); renderSuggestedMeals(); showCustomNotification("تم الحذف من المفضلة.");
+            }
+            const toggleGroceryItem = (itemId, isChecked) => { 
+                const item = shoppingList.find(i => i.id === itemId);
+                if (item) { item.isChecked = isChecked; saveUserDataToLocalStorage(); renderGroceryList(); }
+            }
+            const clearCheckedGroceries = () => { 
+                shoppingList = shoppingList.filter(item => !item.isChecked); saveUserDataToLocalStorage(); renderGroceryList(); showCustomNotification("تم حذف العناصر المشطوبة.");
+            }
+             // --- [ تعديل ] دالة مشاركة مكونات وجبة واحدة ---
+            const shareSingleMealGroceries = async (mealId, mealName) => {
+                const mealItems = shoppingList.filter(item => item.mealId === mealId);
+                if (mealItems.length === 0) {
+                    showCustomNotification("لا توجد مكونات لهذه الوجبة في القائمة.");
                     return;
                 }
+
+                let listContent = `🛒 مكونات وجبة "${mealName}" من تطبيق وصفتي:\n\n`;
+                mealItems.forEach(item => {
+                    const status = item.isChecked ? '(تم الشراء ✅)' : '(مطلوب ⏳)';
+                    listContent += `• ${item.ingredient} ${status}\n`;
+                });
+
+                 if (navigator.share) {
+                    try { await navigator.share({ title: `مكونات ${mealName}`, text: listContent }); } 
+                    catch (err) { console.error('Error sharing:', err); }
+                } else {
+                    try { await navigator.clipboard.writeText(listContent); showCustomNotification(`تم نسخ مكونات "${mealName}" إلى الحافظة!`); } 
+                    catch (err) { console.error('Error copying:', err); showCustomNotification("خطأ أثناء نسخ المكونات."); }
+                }
+            };
+            
+            const openRatingNotesModal = (mealId) => {
+                const meal = mealPlans.find(m => m.id === mealId); if (!meal) return;
+                ratingModalTitle.textContent = `تقييم وملاحظات: ${meal.recipeName}`;
+                mealNotesInput.value = meal.notes || '';
+                ratingMealIdInput.value = mealId;
+                currentRating = meal.rating || 0;
+                renderRatingStars(currentRating); 
+                ratingNotesModal.classList.remove('hidden');
+                lucide.createIcons(); 
+            };
+            const renderRatingStars = (ratingValue) => {
+                ratingStarsContainer.innerHTML = ''; 
+                for (let i = 1; i <= 5; i++) {
+                    const starButton = document.createElement('button');
+                    starButton.dataset.value = i;
+                    starButton.className = `rating-star p-1 ${i <= ratingValue ? 'selected' : ''}`;
+                    starButton.innerHTML = `<i data-lucide="star" class="w-6 h-6 pointer-events-none ${i <= ratingValue ? 'fill-current' : ''}"></i>`;
+                    ratingStarsContainer.appendChild(starButton);
+                }
+                lucide.createIcons();
+            };
+            const saveRatingNotes = () => {
+                const mealId = parseInt(ratingMealIdInput.value, 10);
+                const notes = mealNotesInput.value.trim();
+                const mealIndex = mealPlans.findIndex(m => m.id === mealId);
+                if (mealIndex > -1) {
+                    mealPlans[mealIndex].rating = currentRating;
+                    mealPlans[mealIndex].notes = notes;
+                    const favIndex = favorites.findIndex(f => f.id === mealId);
+                    if(favIndex > -1) { favorites[favIndex].rating = currentRating; favorites[favIndex].notes = notes; }
+                    saveUserDataToLocalStorage();
+                    renderMealPlans(); 
+                    ratingNotesModal.classList.add('hidden'); 
+                    showCustomNotification("تم حفظ التقييم والملاحظات!");
+                }
+            };
+
+            // --- API CALLS ---
+            const callGeminiAPI = async (payload) => { 
+                try {
+                    const response = await fetch(workerUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!response.ok) {
+                         console.error(`HTTP error! status: ${response.status}`, await response.text()); // Log error details
+                         throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return await response.json();
+                } catch (error) {
+                    console.error("Error calling Gemini API:", error); // Log the specific error
+                    showCustomNotification("خطأ في الاتصال بالذكاء الاصطناعي. حاول مرة أخرى.");
+                    return null;
+                }
+            }
+            const generateRecipe = async (isGeneral) => { 
+                if (isLoadingRecipe || isAnalyzingIngredients || isAnalyzingImage) return;
+                const ingredients = userIngredientsInput.value.trim();
+                if (!isGeneral && !ingredients) { showCustomNotification("الرجاء إدخال المكونات أولاً."); return; }
                 if (!checkAndIncrementUsage()) return;
 
                 isLoadingRecipe = true;
                 const button = isGeneral ? suggestGeneralBtn : suggestFromIngredientsBtn;
                 const originalText = button.querySelector('.button-text').textContent;
                 toggleLoading(button, true, originalText);
+
+                const skeletonCard = document.createElement('div');
+                skeletonCard.id = "skeleton-loader";
+                skeletonCard.className = "bg-gray-200 dark:bg-gray-700 p-4 rounded-lg shadow-md border border-gray-300 dark:border-gray-600 animate-pulse";
+                skeletonCard.innerHTML = `<div class="h-6 bg-gray-300 dark:bg-gray-600 rounded w-3/4 mb-3"></div><div class="h-4 bg-gray-300 dark:bg-gray-600 rounded w-full mb-2"></div><div class="h-4 bg-gray-300 dark:bg-gray-600 rounded w-full mb-2"></div><div class="h-4 bg-gray-300 dark:bg-gray-600 rounded w-1/2 mb-4"></div><div class="flex gap-2 mt-4"><div class="h-10 bg-gray-300 dark:bg-gray-600 rounded w-full"></div><div class="h-10 bg-gray-300 dark:bg-gray-600 rounded w-auto px-5"></div><div class="h-10 bg-gray-300 dark:bg-gray-600 rounded w-auto px-5"></div></div>`;
+                suggestedMealsList.prepend(skeletonCard);
                 
                 const cuisine = document.querySelector('input[name="cuisine"]:checked').value;
                 const mealType = mealTypeSelect.value;
                 const prefs = dietaryPreferences.join(', ');
-                
-                const prompt = isGeneral 
-                    ? `اقترح وصفة جديدة ومختلفة من نوع ${mealType} من المطبخ ${cuisine}${prefs ? ` مع مراعاة ${prefs}` : ''}. تجنب تكرار الاقتراحات السابقة.`
-                    : `باستخدام المكونات التالية: "${ingredients}"، اقترح وصفة إبداعية وفريدة. يجب أن تكون من نوع ${mealType} من المطبخ ${cuisine}${prefs ? ` مع مراعاة ${prefs}` : ''}.`;
-
-                const payload = {
-                    contents: [{ role: "user", parts: [{ text: prompt }] }],
-                    generationConfig: { responseMimeType: "application/json", temperature: 0.9,
-                        responseSchema: { type: "OBJECT", properties: { "recipeName": { "type": "STRING" }, "ingredients": { "type": "ARRAY", "items": { "type": "STRING" } }, "preparation": { "type": "STRING" }, "youtubeSearchQuery": { "type": "STRING" } } }
-                    }
-                };
+                const prompt = isGeneral ? `اقترح وصفة جديدة ومختلفة من نوع ${mealType} من المطبخ ${cuisine}${prefs ? ` مع مراعاة ${prefs}` : ''}. تجنب تكرار الاقتراحات السابقة.` : `باستخدام المكونات التالية: "${ingredients}"، اقترح وصفة إبداعية وفريدة. يجب أن تكون من نوع ${mealType} من المطبخ ${cuisine}${prefs ? ` مع مراعاة ${prefs}` : ''}.`;
+                const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json", temperature: 0.9, responseSchema: { type: "OBJECT", properties: { "recipeName": { "type": "STRING" }, "ingredients": { "type": "ARRAY", "items": { "type": "STRING" } }, "preparation": { "type": "STRING" }, "youtubeSearchQuery": { "type": "STRING" } } } } };
 
                 const result = await callGeminiAPI(payload);
+                skeletonCard.remove(); 
                 if (result?.candidates?.[0]?.content?.parts?.[0]?.text) {
-                    try {
-                        const newMeal = { id: Date.now(), ...JSON.parse(result.candidates[0].content.parts[0].text) };
-                        suggestedMeals.unshift(newMeal);
-                        renderSuggestedMeals();
-                        saveUserDataToLocalStorage();
-                    } catch (e) { showCustomNotification("خطأ في تحليل استجابة الخادم."); }
+                    try { const newMeal = { id: Date.now(), ...JSON.parse(result.candidates[0].content.parts[0].text) }; suggestedMeals.unshift(newMeal); renderSuggestedMeals(); saveUserDataToLocalStorage(); } 
+                    catch (e) { showCustomNotification("خطأ في تحليل استجابة الخادم."); }
                 }
                 isLoadingRecipe = false;
                 toggleLoading(button, false, originalText);
-            };
-
-            const analyzeMeal = async (meal, buttonElement) => {
+            }
+            const analyzeMeal = async (meal, buttonElement) => { 
                 if (isLoadingRecipe || isAnalyzingIngredients || isAnalyzingImage) return;
-                if (!meal || !meal.ingredients?.length) {
-                    showCustomNotification("لا توجد مكونات لتحليلها.");
-                    return;
-                }
+                if (!meal || !meal.ingredients?.length) { showCustomNotification("لا توجد مكونات لتحليلها."); return; }
                 if (!checkAndIncrementUsage()) return;
 
                 isAnalyzingIngredients = true;
                 toggleIconLoading(buttonElement, true);
-                
                 const prompt = `حلل القيمة الغذائية لهذه المكونات: "${meal.ingredients.join(', ')}". قدم نصائح أو بدائل صحية. الإجابة كنقاط مختصرة (5 نقاط كحد أقصى).`;
-                const result = await callGeminiAPI({ contents: [{ role: "user", parts: [{ text: prompt }] }] });
+                
+                // Add await here
+                const result = await callGeminiAPI({ contents: [{ role: "user", parts: [{ text: prompt }] }] }); 
 
                 if (result?.candidates?.[0]?.content?.parts?.[0]?.text) {
                     const analysisText = result.candidates[0].content.parts[0].text;
                     const newAnalysis = { text: analysisText, mealName: meal.recipeName };
-
-                    if (analysisHistory.length >= MAX_ANALYSIS_HISTORY) {
-                        analysisHistory.shift(); // Remove the oldest
-                    }
+                    if (analysisHistory.length >= MAX_ANALYSIS_HISTORY) { analysisHistory.shift(); }
                     analysisHistory.push(newAnalysis);
                     currentAnalysisIndex = analysisHistory.length - 1;
-
                     renderAnalysisView();
                     showCustomNotification("تم تحليل المكونات بنجاح!");
-                } else {
-                    showCustomNotification("لم يتمكن النظام من تحليل المكونات.");
-                }
+                } else { 
+                    // Error is handled in callGeminiAPI, maybe just notify failure here
+                    showCustomNotification("فشل تحليل المكونات.");
+                 }
                 isAnalyzingIngredients = false;
                 toggleIconLoading(buttonElement, false);
-            };
-
-            const analyzeImageIngredients = async (base64ImageData, mimeType) => {
+            }
+            const analyzeImageIngredients = async (base64ImageData, mimeType) => { 
                 if (!checkAndIncrementUsage()) return;
                 isAnalyzingImage = true;
                 const button = imageSearchBtn;
                 const originalText = button.querySelector('.button-text').textContent;
                 toggleLoading(button, true, originalText, 'camera');
-
                 const prompt = `ما هي المكونات الصالحة للطبخ في هذه الصورة؟ اذكر المكونات فقط مفصولة بفاصلة.`;
                 const payload = { contents: [ { role: "user", parts: [ { text: prompt }, { inlineData: { mimeType, data: base64ImageData } } ] } ] };
-
                 const result = await callGeminiAPI(payload);
-                if (result?.candidates?.[0]?.content?.parts?.[0]?.text) {
-                    userIngredientsInput.value = result.candidates[0].content.parts[0].text.trim();
-                    showCustomNotification("تم التعرف على المكونات!");
-                } else {
-                    showCustomNotification("لم يتم التعرف على مكونات.");
-                }
+                if (result?.candidates?.[0]?.content?.parts?.[0]?.text) { userIngredientsInput.value = result.candidates[0].content.parts[0].text.trim(); showCustomNotification("تم التعرف على المكونات!"); } 
+                else { showCustomNotification("لم يتم التعرف على مكونات."); }
                 isAnalyzingImage = false;
                 toggleLoading(button, false, originalText, 'camera');
-            };
+            }
             
             // --- EVENT LISTENERS ---
+            document.body.addEventListener('click', createRipple);
             suggestFromIngredientsBtn.addEventListener('click', () => generateRecipe(false));
             suggestGeneralBtn.addEventListener('click', () => generateRecipe(true));
             themeToggleBtn.addEventListener('click', toggleDarkMode);
-            
-            clearGroceryBtn.addEventListener('click', () => {
-                mealPlans = [];
-                renderMealPlans();
-                saveUserDataToLocalStorage();
-                showCustomNotification("تم مسح قائمة التسوق والوجبات.");
+            // shareGroceryBtn.addEventListener('click', shareGroceryList); // Removed
+            clearCheckedGroceriesBtn.addEventListener('click', clearCheckedGroceries);
+            openFavoritesBtn.addEventListener('click', () => { renderFavorites(); favoritesModal.classList.remove('hidden'); });
+            closeFavoritesBtn.addEventListener('click', () => favoritesModal.classList.add('hidden'));
+            closeRatingModalBtn.addEventListener('click', () => ratingNotesModal.classList.add('hidden'));
+            saveRatingNotesBtn.addEventListener('click', saveRatingNotes);
+            ratingStarsContainer.addEventListener('click', (e) => {
+                const starButton = e.target.closest('.rating-star');
+                if (starButton && starButton.dataset.value) { currentRating = parseInt(starButton.dataset.value, 10); renderRatingStars(currentRating); }
             });
-
-            dietaryPreferenceCheckboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', () => {
-                    dietaryPreferences = Array.from(dietaryPreferenceCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
-                    saveUserDataToLocalStorage();
-                });
-            });
-
+            clearGroceryBtn.addEventListener('click', () => { mealPlans = []; shoppingList = []; renderMealPlans(); saveUserDataToLocalStorage(); showCustomNotification("تم مسح قائمة التسوق والوجبات."); });
+            dietaryPreferenceCheckboxes.forEach(checkbox => checkbox.addEventListener('change', () => { dietaryPreferences = Array.from(dietaryPreferenceCheckboxes).filter(cb => cb.checked).map(cb => cb.value); saveUserDataToLocalStorage(); }));
+            groceryList.addEventListener('change', (e) => { const target = e.target; if (target.type === 'checkbox' && target.dataset.id) { toggleGroceryItem(parseInt(target.dataset.id, 10), target.checked); } });
+            favoritesList.addEventListener('click', (e) => { const btn = e.target.closest('button'); if (!btn) return; const id = parseInt(btn.dataset.id, 10); if (btn.classList.contains('add-fav-to-plan-btn')) addFavoriteToPlan(id); if (btn.classList.contains('remove-from-favorites-btn')) removeFavorite(id); });
             document.body.addEventListener('click', (e) => {
-                const targetButton = e.target.closest('button');
-                if (!targetButton) return;
+                const targetButton = e.target.closest('button'); if (!targetButton) return;
                 const mealId = parseInt(targetButton.dataset.id, 10);
-                
+                const mealName = targetButton.dataset.mealName; // For single meal share
+
                 if (targetButton.classList.contains('add-suggested-btn')) addSuggestedMealToPlan(mealId);
-                if (targetButton.classList.contains('clear-suggested-btn')) clearSuggestedMeal(mealId);
-                if (targetButton.classList.contains('delete-meal-btn')) deleteMealPlan(mealId);
-                
-                if (targetButton.classList.contains('analyze-suggested-btn') || targetButton.classList.contains('analyze-planned-btn')) {
-                    const analysisTutorialShown = localStorage.getItem('analysisTutorialShown');
-                    if (!analysisTutorialShown) {
-                        const userConfirmed = confirm("هذا الزر يستخدم الذكاء الاصطناعي لتحليل مكونات الوجبة وتقديم نصائح. هل تريد المتابعة؟");
-                        if (userConfirmed) {
-                            localStorage.setItem('analysisTutorialShown', 'true');
-                        } else { return; }
-                    }
-                    const mealSource = targetButton.classList.contains('analyze-suggested-btn') ? suggestedMeals : mealPlans;
+                else if (targetButton.classList.contains('clear-suggested-btn')) clearSuggestedMeal(mealId);
+                else if (targetButton.classList.contains('delete-meal-btn')) deleteMealPlan(mealId);
+                else if (targetButton.classList.contains('add-to-favorites-btn')) toggleFavorite(mealId); 
+                else if (targetButton.classList.contains('open-rating-notes-btn')) openRatingNotesModal(mealId);
+                else if (targetButton.classList.contains('share-meal-groceries-btn')) shareSingleMealGroceries(mealId, mealName); // New listener
+                else if (targetButton.classList.contains('analyze-suggested-btn') || targetButton.classList.contains('analyze-planned-btn')) { 
+                     // Analysis logic (seems okay, but added await in analyzeMeal)
+                    let mealSource = targetButton.classList.contains('analyze-suggested-btn') ? suggestedMeals : mealPlans;
+                    if (!mealSource.find(m => m.id === mealId)) mealSource = favorites;
                     const mealToAnalyze = mealSource.find(m => m.id === mealId);
                     if (mealToAnalyze) analyzeMeal(mealToAnalyze, targetButton);
-                }
-
-                if (targetButton.id === 'clear-analysis-btn') {
-                    if (currentAnalysisIndex > -1) {
-                        analysisHistory.splice(currentAnalysisIndex, 1);
-                        if (currentAnalysisIndex >= analysisHistory.length) {
-                            currentAnalysisIndex = analysisHistory.length - 1;
-                        }
-                        renderAnalysisView();
-                        showCustomNotification("تم مسح التحليل.");
-                    }
-                }
-
-                if (targetButton.id === 'prev-analysis-btn') {
-                    if (currentAnalysisIndex > 0) {
-                        currentAnalysisIndex--;
-                        renderAnalysisView();
-                    }
-                }
-                
-                if (targetButton.id === 'next-analysis-btn') {
-                    if (currentAnalysisIndex < analysisHistory.length - 1) {
-                        currentAnalysisIndex++;
-                        renderAnalysisView();
-                    }
-                }
+                } 
+                else if (targetButton.id === 'clear-analysis-btn') { 
+                     if (currentAnalysisIndex > -1) { analysisHistory.splice(currentAnalysisIndex, 1); if (currentAnalysisIndex >= analysisHistory.length) currentAnalysisIndex = analysisHistory.length - 1; renderAnalysisView(); showCustomNotification("تم مسح التحليل."); }
+                } 
+                else if (targetButton.id === 'prev-analysis-btn') { if (currentAnalysisIndex > 0) { currentAnalysisIndex--; renderAnalysisView(); } } 
+                else if (targetButton.id === 'next-analysis-btn') { if (currentAnalysisIndex < analysisHistory.length - 1) { currentAnalysisIndex++; renderAnalysisView(); } }
             });
-
             imageSearchBtn.addEventListener('click', () => imageUploadInput.click());
-            imageUploadInput.addEventListener('change', (event) => {
-                const file = event.target.files[0];
-                if (file && file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onloadend = () => analyzeImageIngredients(reader.result.split(',')[1], file.type);
-                    reader.readAsDataURL(file);
-                }
-            });
+            imageUploadInput.addEventListener('change', (event) => { const file = event.target.files[0]; if (file && file.type.startsWith('image/')) { const reader = new FileReader(); reader.onloadend = () => analyzeImageIngredients(reader.result.split(',')[1], file.type); reader.readAsDataURL(file); } });
 
             // --- INITIALIZATION ---
             const initializeApp = () => {
+                // Set initial theme before loading data
+                const savedTheme = localStorage.getItem('theme');
+                const initialIconElement = themeToggleBtn.querySelector('.theme-icon');
+                if (savedTheme === 'dark') { htmlElement.classList.add('dark'); if (initialIconElement) initialIconElement.setAttribute('data-lucide', 'sun'); } 
+                else { htmlElement.classList.remove('dark'); if (initialIconElement) initialIconElement.setAttribute('data-lucide', 'moon'); }
+
                 loadUserDataFromLocalStorage();
                 loadUsageDataFromLocalStorage();
                 renderStaticTips(); 
@@ -846,13 +846,19 @@
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').then(reg => { 
     console.log('SW registered', reg); 
-    setInterval(() => { reg.update(); }, 3600000);
+    setInterval(() => { reg.update(); }, 3600000); // Check every hour
   }).catch(err => console.warn('SW registration failed', err));
-  navigator.serviceWorker.addEventListener('message', event => {
-    if (event.data === 'SW_UPDATED') {
-      alert('نسخة جديدة من التطبيق متاحة! يرجى إعادة تحميل الصفحة.');
-    }
+  
+  // Listen for controller change which happens after SW update and page reload
+  let refreshing;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      window.location.reload();
+      refreshing = true;
   });
+
+  // Optional: Add a button or prompt for the user to update immediately
+  // You would need a way to communicate from the SW to the page when an update is available
 }
 </script>
 </body>
