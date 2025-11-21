@@ -23,12 +23,34 @@
         .dynamic-tip-enter { opacity: 0; }
         .dynamic-tip-enter-active { opacity: 1; transition: opacity 0.5s ease; }
         .grocery-item-label.checked { text-decoration: line-through; opacity: 0.6; }
-        .flag { width: 30px; height: 20px; display: flex; flex-direction: column; position: relative; overflow: hidden; border-radius: 2px; }
+        
+        /* تعديلات العلم */
+        .flag { 
+            width: 30px; 
+            height: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            position: relative; 
+            overflow: hidden; 
+            border-radius: 2px; 
+            cursor: pointer; 
+            animation: flag-wave 2s infinite ease-in-out; 
+            transform-origin: left center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        @keyframes flag-wave {
+            0%, 100% { transform: skewY(0deg) rotate(0deg); }
+            25% { transform: skewY(5deg) rotate(2deg); }
+            75% { transform: skewY(-5deg) rotate(-2deg); }
+        }
+
         .flag-stripe { flex: 1; }
         .flag-stripe.red { background-color: #d11c24; }
         .flag-stripe.white { background-color: #ffffff; }
         .flag-stripe.black { background-color: #000000; }
         .flag-triangle { width: 0; height: 0; border-style: solid; border-width: 10px 0 10px 13px; border-color: transparent transparent transparent #00723a; position: absolute; top: 0; left: 0; }
+        
         button:disabled { opacity: 0.5; cursor: not-allowed; }
         @keyframes spin-once { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .rotate-icon { animation: spin-once 0.3s ease-in-out; }
@@ -37,7 +59,7 @@
         .dark .btn-ripple .ripple { background-color: rgba(0, 0, 0, 0.3); }
         @keyframes ripple-effect { to { transform: scale(4); opacity: 0; } }
         .rating-star { cursor: pointer; transition: color 0.2s; }
-        .rating-star.selected { color: #facc15; /* yellow-400 */ }
+        .rating-star.selected { color: #facc15; }
         .rating-star:hover { color: #facc15; }
     </style>
 <link rel="manifest" href="manifest.webmanifest">
@@ -51,6 +73,34 @@
 </head>
 <body class="bg-white text-gray-800 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-300">
 
+    <div id="credits-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-[100] p-4 backdrop-blur-sm transition-opacity duration-300">
+        <div class="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100 border border-gray-100 dark:border-gray-700">
+            <div class="bg-gradient-to-br from-green-600 to-teal-700 p-8 text-center relative overflow-hidden">
+                <div class="absolute top-[-20px] left-[-20px] w-20 h-20 bg-white opacity-10 rounded-full"></div>
+                <div class="absolute bottom-[-10px] right-[-10px] w-16 h-16 bg-white opacity-10 rounded-full"></div>
+                <div class="mx-auto bg-white/20 backdrop-blur-md rounded-2xl p-4 w-20 h-20 flex items-center justify-center mb-4 shadow-inner border border-white/30">
+                    <i data-lucide="code-2" class="w-10 h-10 text-white"></i>
+                </div>
+                <h3 class="text-white text-2xl font-bold tracking-wide drop-shadow-md">فريق التطوير</h3>
+            </div>
+            <div class="p-8 text-center bg-white dark:bg-gray-800">
+                 <p class="text-gray-500 dark:text-gray-400 mb-2 text-sm font-medium uppercase tracking-wider">تمت البرمجة بواسطة</p>
+                 
+                 <a href="https://www.facebook.com/share/1KjS11eHuP/" target="_blank" rel="noopener noreferrer" class="inline-block hover:scale-105 transition-transform duration-300" title="زيارة حساب الفيسبوك">
+                    <h2 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-teal-600 mb-4 py-2 cursor-pointer hover:underline decoration-green-500 underline-offset-4">Mustafa Omar Ahmed</h2>
+                 </a>
+                 
+                 <div class="w-24 h-1.5 bg-gradient-to-r from-green-400 to-teal-400 mx-auto rounded-full my-6 opacity-80"></div>
+                 <p class="text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-6">
+                     تم تطوير هذا التطبيق لتقديم تجربة طهي ذكية وممتعة. <br> شكراً لاستخدامكم وصفتي ❤️
+                 </p>
+                 <button id="close-credits-btn" class="btn-ripple w-full bg-gray-900 hover:bg-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                     إغلاق
+                 </button>
+            </div>
+        </div>
+    </div>
+
     <div id="favorites-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center z-50 p-4">
         <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
             <header class="flex justify-between items-center p-4 border-b dark:border-gray-700">
@@ -61,6 +111,14 @@
                     <i data-lucide="x" class="w-6 h-6 pointer-events-none"></i>
                 </button>
             </header>
+            
+            <div class="p-4 bg-gray-50 dark:bg-gray-700/50 border-b dark:border-gray-700">
+                <div class="relative">
+                    <input type="text" id="favorites-search" placeholder="ابحث عن وجبة أو مكون..." class="w-full pl-4 pr-10 py-2 rounded-lg border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-400 bg-white dark:bg-gray-800 dark:text-gray-100 transition-all duration-200">
+                    <i data-lucide="search" class="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"></i>
+                </div>
+            </div>
+
             <div id="favorites-list" class="p-6 space-y-4 overflow-y-auto">
                 <p id="no-favorites-message" class="text-gray-600 dark:text-gray-400 text-center py-4">لم تقم بإضافة أي وجبات للمفضلة بعد.</p>
             </div>
@@ -108,7 +166,12 @@
                     <h1 class="text-4xl sm:text-5xl font-extrabold text-green-700 drop-shadow-lg mb-1 dark:text-green-400">وصفتي</h1>
                     <p class="text-lg sm:text-xl text-teal-600 dark:text-teal-400">مطبخك الذكي</p>
                 </div>
-                <div class="flag"> <div class="flag-stripe red"></div> <div class="flag-stripe white"></div> <div class="flag-stripe black"></div> <div class="flag-triangle"></div> </div>
+                <div class="flag" id="sudan-flag" title="عن المطور"> 
+                    <div class="flag-stripe red"></div> 
+                    <div class="flag-stripe white"></div> 
+                    <div class="flag-stripe black"></div> 
+                    <div class="flag-triangle"></div> 
+                </div>
             </div>
         </header>
         <main class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -210,8 +273,12 @@
             let countdownInterval = null;
             let analysisHistory = []; 
             let currentAnalysisIndex = -1;
+            
+            // متغير للبحث في المفضلة
+            let favoritesSearchQuery = '';
+
             const MAX_MEAL_PLANS = 10;
-            const MAX_DAILY_REQUESTS = 10;
+            const MAX_DAILY_REQUESTS = 15;
             const MAX_ANALYSIS_HISTORY = 10;
             
             // --- DOM Elements ---
@@ -235,13 +302,16 @@
             const imageUploadInput = document.getElementById('image-upload');
             const imageSearchBtn = document.getElementById('image-search-btn');
             const resetTimerElement = document.getElementById('reset-timer');
-            // const shareGroceryBtn = document.getElementById('share-grocery-btn'); // Removed
             const clearCheckedGroceriesBtn = document.getElementById('clear-checked-groceries-btn'); 
+            
+            // Favorites Elements
             const favoritesModal = document.getElementById('favorites-modal');
             const openFavoritesBtn = document.getElementById('open-favorites-btn');
             const closeFavoritesBtn = document.getElementById('close-favorites-btn');
             const favoritesList = document.getElementById('favorites-list');
             const noFavoritesMessage = document.getElementById('no-favorites-message');
+            const favoritesSearchInput = document.getElementById('favorites-search'); 
+            
             const ratingNotesModal = document.getElementById('rating-notes-modal');
             const closeRatingModalBtn = document.getElementById('close-rating-modal-btn');
             const ratingModalTitle = document.getElementById('rating-modal-title');
@@ -249,6 +319,11 @@
             const mealNotesInput = document.getElementById('meal-notes');
             const ratingMealIdInput = document.getElementById('rating-meal-id');
             const saveRatingNotesBtn = document.getElementById('save-rating-notes-btn');
+            
+            const creditsModal = document.getElementById('credits-modal');
+            const sudanFlag = document.getElementById('sudan-flag');
+            const closeCreditsBtn = document.getElementById('close-credits-btn');
+
             let currentRating = 0; 
 
             document.getElementById('year').textContent = new Date().getFullYear();
@@ -323,13 +398,13 @@
             const renderGroceryList = () => {
                 groceryList.innerHTML = '';
                 let hasCheckedItems = false;
-                let hasItems = false; // Flag to check if there are any items at all
+                let hasItems = false; 
 
                 if (shoppingList.length === 0) {
                     groceryList.appendChild(noGroceriesMessage);
                     noGroceriesMessage.classList.remove('hidden');
                 } else {
-                    hasItems = true; // Set flag if list is not empty
+                    hasItems = true; 
                     noGroceriesMessage.classList.add('hidden');
                     
                     const groupedList = shoppingList.reduce((acc, item) => {
@@ -343,18 +418,16 @@
                         const mealContainer = document.createElement('div');
                         mealContainer.className = "bg-teal-50 p-4 rounded-lg border border-teal-100 dark:bg-gray-700 dark:border-teal-600 mb-4"; 
                         
-                        // --- [ بداية تعديل ] إضافة زر المشاركة الفردي ---
-                        const mealId = items[0]?.mealId; // Get mealId from the first item
+                        const mealId = items[0]?.mealId; 
                         mealContainer.innerHTML = `
                             <div class="flex justify-between items-center mb-2">
                                 <h4 class="text-lg font-semibold text-teal-800 dark:text-teal-300">${mealName}</h4>
-                                ${mealId ? // Only show share if it's tied to a specific meal
+                                ${mealId ? 
                                 `<button data-id="${mealId}" data-meal-name="${mealName}" class="btn-ripple share-meal-groceries-btn text-teal-600 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-200 p-1 rounded-full transform active:scale-90" title="مشاركة مكونات هذه الوجبة">
                                     <i data-lucide="share-2" class="w-5 h-5 pointer-events-none"></i>
                                 </button>` 
                                 : ''}
                             </div>`;
-                        // --- [ نهاية تعديل ] ---
                         
                         const ingredientsList = document.createElement('ul');
                         ingredientsList.className = "space-y-2";
@@ -378,12 +451,10 @@
                     }
                     
                 }
-                // Disable buttons based on state
-                // shareGroceryBtn.disabled = !hasItems; // Removed global share button
                 clearCheckedGroceriesBtn.disabled = !hasCheckedItems;
-                clearGroceryBtn.disabled = !hasItems; // Disable clear all if list is empty
+                clearGroceryBtn.disabled = !hasItems; 
 
-                lucide.createIcons(); // Render icons for share buttons
+                lucide.createIcons(); 
             };
 
 
@@ -414,16 +485,36 @@
                 }
                 lucide.createIcons();
             }
+
+            // دالة عرض المفضلة مع فلترة البحث
             const renderFavorites = () => { 
                 favoritesList.innerHTML = '';
-                if (favorites.length === 0) {
-                    favoritesList.appendChild(noFavoritesMessage);
-                    noFavoritesMessage.classList.remove('hidden');
+                
+                // فلترة القائمة بناءً على نص البحث
+                const filteredFavorites = favorites.filter(meal => 
+                    meal.recipeName.includes(favoritesSearchQuery) || 
+                    meal.ingredients.some(i => i.includes(favoritesSearchQuery))
+                );
+
+                if (filteredFavorites.length === 0) {
+                    if (favoritesSearchQuery) {
+                        favoritesList.innerHTML = `<p class="text-gray-500 text-center py-4">لا توجد نتائج بحث مطابقة لـ "${favoritesSearchQuery}".</p>`;
+                    } else {
+                        favoritesList.appendChild(noFavoritesMessage);
+                        noFavoritesMessage.classList.remove('hidden');
+                    }
                 } else {
                     noFavoritesMessage.classList.add('hidden');
-                    favorites.forEach(meal => {
+                    filteredFavorites.forEach(meal => {
                         const favCard = document.createElement('div');
                         favCard.className = "bg-gray-50 dark:bg-gray-700 p-4 rounded-lg shadow-sm border dark:border-gray-600";
+                        
+                        let ratingHTML = '<div class="flex text-gray-300 dark:text-gray-500 mb-2">';
+                        for(let i = 1; i <= 5; i++) {
+                            ratingHTML += `<i data-lucide="star" class="w-4 h-4 mr-1 ${i <= (meal.rating || 0) ? 'text-yellow-400 fill-current' : ''}"></i>`;
+                        }
+                        ratingHTML += '</div>';
+
                         favCard.innerHTML = `
                             <div class="flex justify-between items-center mb-2">
                                 <strong class="text-lg text-purple-800 dark:text-purple-300">${meal.recipeName}</strong>
@@ -431,7 +522,9 @@
                                     <i data-lucide="trash-2" class="w-5 h-5 pointer-events-none"></i>
                                 </button>
                             </div>
+                            ${ratingHTML}
                             <p class="text-sm text-gray-600 dark:text-gray-400 mb-3"><span class="font-semibold">المكونات:</span> ${meal.ingredients.join('، ')}</p>
+                            ${meal.notes ? `<div class="mb-3 text-sm text-gray-600 dark:text-gray-400 border-t pt-2 dark:border-gray-600"><span class="font-semibold">ملاحظاتك:</span> ${meal.notes.replace(/\n/g, '<br>')}</div>` : ''}
                             <button data-id="${meal.id}" class="btn-ripple add-fav-to-plan-btn w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition transform hover:scale-105 active:scale-90 flex items-center justify-center gap-2">
                                 <i data-lucide="plus-circle" class="w-5 h-5 pointer-events-none"></i>
                                 <span>إضافة للخطط</span>
@@ -442,6 +535,7 @@
                 }
                 lucide.createIcons();
             }
+
             const renderAnalysisView = () => { 
                 if (tipsInterval) clearInterval(tipsInterval);
                 if (analysisHistory.length === 0 || currentAnalysisIndex < 0) { renderStaticTips(); return; }
@@ -549,7 +643,6 @@
                         renderMealPlans();
                         renderSuggestedMeals();
                         dietaryPreferenceCheckboxes.forEach(cb => { cb.checked = dietaryPreferences.includes(cb.value); });
-                        // Don't show notification on initial load
                     }
                 } catch (e) { console.error("Failed to load user data:", e); }
             };
@@ -631,7 +724,6 @@
             const clearCheckedGroceries = () => { 
                 shoppingList = shoppingList.filter(item => !item.isChecked); saveUserDataToLocalStorage(); renderGroceryList(); showCustomNotification("تم حذف العناصر المشطوبة.");
             }
-             // --- [ تعديل ] دالة مشاركة مكونات وجبة واحدة ---
             const shareSingleMealGroceries = async (mealId, mealName) => {
                 const mealItems = shoppingList.filter(item => item.mealId === mealId);
                 if (mealItems.length === 0) {
@@ -675,19 +767,33 @@
                 }
                 lucide.createIcons();
             };
+            
             const saveRatingNotes = () => {
                 const mealId = parseInt(ratingMealIdInput.value, 10);
                 const notes = mealNotesInput.value.trim();
                 const mealIndex = mealPlans.findIndex(m => m.id === mealId);
+                
                 if (mealIndex > -1) {
                     mealPlans[mealIndex].rating = currentRating;
                     mealPlans[mealIndex].notes = notes;
+
                     const favIndex = favorites.findIndex(f => f.id === mealId);
-                    if(favIndex > -1) { favorites[favIndex].rating = currentRating; favorites[favIndex].notes = notes; }
+                    if(favIndex > -1) {
+                        favorites[favIndex].rating = currentRating;
+                        favorites[favIndex].notes = notes;
+                    } else {
+                        favorites.push(mealPlans[mealIndex]);
+                        showCustomNotification("تم حفظ التقييم وإضافة الوجبة للمفضلة تلقائياً!");
+                    }
+
                     saveUserDataToLocalStorage();
                     renderMealPlans(); 
+                    if (!favoritesModal.classList.contains('hidden')) {
+                        renderFavorites();
+                    }
+
                     ratingNotesModal.classList.add('hidden'); 
-                    showCustomNotification("تم حفظ التقييم والملاحظات!");
+                    if(favIndex > -1) showCustomNotification("تم حفظ التقييم والملاحظات!");
                 }
             };
 
@@ -696,12 +802,12 @@
                 try {
                     const response = await fetch(workerUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                     if (!response.ok) {
-                         console.error(`HTTP error! status: ${response.status}`, await response.text()); // Log error details
+                         console.error(`HTTP error! status: ${response.status}`, await response.text()); 
                          throw new Error(`HTTP error! status: ${response.status}`);
                     }
                     return await response.json();
                 } catch (error) {
-                    console.error("Error calling Gemini API:", error); // Log the specific error
+                    console.error("Error calling Gemini API:", error); 
                     showCustomNotification("خطأ في الاتصال بالذكاء الاصطناعي. حاول مرة أخرى.");
                     return null;
                 }
@@ -747,7 +853,6 @@
                 toggleIconLoading(buttonElement, true);
                 const prompt = `حلل القيمة الغذائية لهذه المكونات: "${meal.ingredients.join(', ')}". قدم نصائح أو بدائل صحية. الإجابة كنقاط مختصرة (5 نقاط كحد أقصى).`;
                 
-                // Add await here
                 const result = await callGeminiAPI({ contents: [{ role: "user", parts: [{ text: prompt }] }] }); 
 
                 if (result?.candidates?.[0]?.content?.parts?.[0]?.text) {
@@ -759,7 +864,6 @@
                     renderAnalysisView();
                     showCustomNotification("تم تحليل المكونات بنجاح!");
                 } else { 
-                    // Error is handled in callGeminiAPI, maybe just notify failure here
                     showCustomNotification("فشل تحليل المكونات.");
                  }
                 isAnalyzingIngredients = false;
@@ -785,7 +889,6 @@
             suggestFromIngredientsBtn.addEventListener('click', () => generateRecipe(false));
             suggestGeneralBtn.addEventListener('click', () => generateRecipe(true));
             themeToggleBtn.addEventListener('click', toggleDarkMode);
-            // shareGroceryBtn.addEventListener('click', shareGroceryList); // Removed
             clearCheckedGroceriesBtn.addEventListener('click', clearCheckedGroceries);
             openFavoritesBtn.addEventListener('click', () => { renderFavorites(); favoritesModal.classList.remove('hidden'); });
             closeFavoritesBtn.addEventListener('click', () => favoritesModal.classList.add('hidden'));
@@ -799,19 +902,35 @@
             dietaryPreferenceCheckboxes.forEach(checkbox => checkbox.addEventListener('change', () => { dietaryPreferences = Array.from(dietaryPreferenceCheckboxes).filter(cb => cb.checked).map(cb => cb.value); saveUserDataToLocalStorage(); }));
             groceryList.addEventListener('change', (e) => { const target = e.target; if (target.type === 'checkbox' && target.dataset.id) { toggleGroceryItem(parseInt(target.dataset.id, 10), target.checked); } });
             favoritesList.addEventListener('click', (e) => { const btn = e.target.closest('button'); if (!btn) return; const id = parseInt(btn.dataset.id, 10); if (btn.classList.contains('add-fav-to-plan-btn')) addFavoriteToPlan(id); if (btn.classList.contains('remove-from-favorites-btn')) removeFavorite(id); });
+            
+            sudanFlag.addEventListener('click', () => {
+                creditsModal.classList.remove('hidden');
+            });
+            closeCreditsBtn.addEventListener('click', () => {
+                creditsModal.classList.add('hidden');
+            });
+            creditsModal.addEventListener('click', (e) => {
+                if(e.target === creditsModal) creditsModal.classList.add('hidden');
+            });
+
+            // مستمع حدث البحث في المفضلة
+            favoritesSearchInput.addEventListener('input', (e) => {
+                favoritesSearchQuery = e.target.value.trim();
+                renderFavorites();
+            });
+
             document.body.addEventListener('click', (e) => {
                 const targetButton = e.target.closest('button'); if (!targetButton) return;
                 const mealId = parseInt(targetButton.dataset.id, 10);
-                const mealName = targetButton.dataset.mealName; // For single meal share
+                const mealName = targetButton.dataset.mealName; 
 
                 if (targetButton.classList.contains('add-suggested-btn')) addSuggestedMealToPlan(mealId);
                 else if (targetButton.classList.contains('clear-suggested-btn')) clearSuggestedMeal(mealId);
                 else if (targetButton.classList.contains('delete-meal-btn')) deleteMealPlan(mealId);
                 else if (targetButton.classList.contains('add-to-favorites-btn')) toggleFavorite(mealId); 
                 else if (targetButton.classList.contains('open-rating-notes-btn')) openRatingNotesModal(mealId);
-                else if (targetButton.classList.contains('share-meal-groceries-btn')) shareSingleMealGroceries(mealId, mealName); // New listener
+                else if (targetButton.classList.contains('share-meal-groceries-btn')) shareSingleMealGroceries(mealId, mealName); 
                 else if (targetButton.classList.contains('analyze-suggested-btn') || targetButton.classList.contains('analyze-planned-btn')) { 
-                     // Analysis logic (seems okay, but added await in analyzeMeal)
                     let mealSource = targetButton.classList.contains('analyze-suggested-btn') ? suggestedMeals : mealPlans;
                     if (!mealSource.find(m => m.id === mealId)) mealSource = favorites;
                     const mealToAnalyze = mealSource.find(m => m.id === mealId);
@@ -828,7 +947,6 @@
 
             // --- INITIALIZATION ---
             const initializeApp = () => {
-                // Set initial theme before loading data
                 const savedTheme = localStorage.getItem('theme');
                 const initialIconElement = themeToggleBtn.querySelector('.theme-icon');
                 if (savedTheme === 'dark') { htmlElement.classList.add('dark'); if (initialIconElement) initialIconElement.setAttribute('data-lucide', 'sun'); } 
@@ -846,19 +964,15 @@
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').then(reg => { 
     console.log('SW registered', reg); 
-    setInterval(() => { reg.update(); }, 3600000); // Check every hour
+    setInterval(() => { reg.update(); }, 3600000); 
   }).catch(err => console.warn('SW registration failed', err));
   
-  // Listen for controller change which happens after SW update and page reload
   let refreshing;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (refreshing) return;
       window.location.reload();
       refreshing = true;
   });
-
-  // Optional: Add a button or prompt for the user to update immediately
-  // You would need a way to communicate from the SW to the page when an update is available
 }
 </script>
 </body>
